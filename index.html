@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Image Gallery</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            width: 100%;
+            height: 100%;
+        }
+
+        .image {
+            flex: 0 1 calc(33.333%);
+            box-sizing: border-box;
+        }
+
+        .image img {
+            width: 100%;
+            height: 100%;
+        }
+
+        @media (max-width: 600px) {
+            .image {
+                flex: 1 1 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="image">
+        <img src="https://vreme.arso.gov.si/uploads/probase/www/observ/webcam/LJUBL-ANA_BRNIK_dir/siwc_LJUBL-ANA_BRNIK_nw.jpg"
+             alt="Brnik NW">
+    </div>
+    <div class="image">
+        <img src="https://vreme.arso.gov.si/uploads/probase/www/observ/webcam/LJUBL-ANA_BRNIK_dir/siwc_LJUBL-ANA_BRNIK_n.jpg"
+             alt="Brnik N">
+    </div>
+    <div class="image">
+        <img src="https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/LJUBL-ANA_BRNIK_dir/siwc_LJUBL-ANA_BRNIK_ne.jpg"
+             alt="Brnik NE">
+    </div>
+    <div class="image">
+        <img src="https://www.hribi.net/kamere/kokrsko_sedlo_3693.jpg" alt="Kokrško sedlo">
+    </div>
+    <div class="image">
+        <img src="https://www.hribi.net/kamere/kamnisko_sedlo_2326.jpg" alt="Kamniško Sedlo">
+    </div>
+    <div class="image">
+        <img src="https://vreme.arso.gov.si/uploads/probase/www/observ/webcam/KRVAVEC_dir/siwc_KRVAVEC_s.jpg"
+             alt="Krvavec S">
+    </div>
+    <div class="image">
+        <img src="https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/KRVAVEC_dir/siwc_KRVAVEC_w.jpg"
+             alt="Krvavec W">
+    </div>
+</div>
+</body>
+</html>
