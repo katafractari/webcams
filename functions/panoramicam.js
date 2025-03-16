@@ -1,37 +1,40 @@
-export default {
-    async fetch(request) {
-        const url = new URL(request.url);
+export const onRequest = async (context) => {
+    const { request } = context;
 
-        // Get query params: targetUrl and referer
-        const targetUrl = url.searchParams.get('targetUrl');
-        const referer = url.searchParams.get('referer');
+    const url = new URL(request.url);
 
-        if (!targetUrl || !referer) {
-            return new Response('targetUrl parameter is required', { status: 400 });
+    // Get 'targetUrl' and 'referer' query parameters
+    const targetUrl = url.searchParams.get('targetUrl');
+    const referer = url.searchParams.get('referer');
+
+    if (!targetUrl || !referer) {
+        return new Response('Missing "targetUrl" parameter', { status: 400 });
+    }
+
+    try {
+        // Fetch the target image with the specified referer header
+        const imageResponse = await fetch(targetUrl, {
+            headers: {
+                'Referer': referer,
+                'User-Agent': request.headers.get('User-Agent') || 'Mozilla/5.0',
+            },
+        });
+
+        // Handle non-OK responses
+        if (!imageResponse.ok) {
+            return new Response('Failed to fetch the target image', { status: imageResponse.status });
         }
 
-        try {
-            // Fetch image with specified referer header
-            const response = await fetch(targetUrl, {
-                headers: {
-                    'Referer': referer,
-                    'User-Agent': request.headers.get('User-Agent') || 'Mozilla/5.0'
-                }
-            });
+        // Create a new response, setting proper headers
+        const response = new Response(imageResponse.body, imageResponse);
 
-            // Check if the response is valid
-            if (!response.ok) {
-                return new Response('Failed to fetch image', { status: response.status });
-            }
+        // Allow cross-origin image loading if required
+        response.headers.set('Access-Control-Allow-Origin', '*');
+        response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 
-            // Clone response to modify headers
-            const modifiedResponse = new Response(response.body, response);
-            modifiedResponse.headers.set('Access-Control-Allow-Origin', '*');
+        return response;
 
-            return modifiedResponse;
-
-        } catch (err) {
-            return new Response(`Error fetching image: ${err.message}`, { status: 500 });
-        }
+    } catch (err) {
+        return new Response(`Error fetching image: ${err.message}`, { status: 500 });
     }
 };
