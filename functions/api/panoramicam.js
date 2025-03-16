@@ -30,7 +30,6 @@ export const onRequest = async (context) => {
 
         // Allow cross-origin image loading if required
         response.headers.set('Access-Control-Allow-Origin', '*');
-        response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 
         return response;
 

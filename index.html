@@ -83,9 +83,16 @@
              alt="Iz Šmarne proti Ljubljani">
     </div>
     <div class="image">
-        <img src="https://b20877f4.webcams-4k9.pages.dev/panoramicam?referer=https://panoramicam.eu/&targetUrl=https://liveimage.panoramicam.eu/thumbnail?application=SvetiJakob&streamname=SvetiJakob.stream&size=858x480&fitmode=letterbox&format=jpg"
-             alt="Sv. Jakob">
+        <img id="svJakob" src="" alt="Sv. Jakob">
     </div>
 </div>
+<script>
+    const svJakobtargetUrl = 'https://liveimage.panoramicam.eu/thumbnail?application=SvetiJakob&streamname=SvetiJakob.stream&size=858x480&fitmode=letterbox&format=jpg';
+    const referer = 'https://panoramicam.eu/';
+
+    const proxyUrl = `https://webcams-4k9.pages.dev/api/panoramicam?targetUrl=${encodeURIComponent(svJakobtargetUrl)}&referer=${encodeURIComponent(referer)}`;
+
+    document.getElementById('svJakob').src = proxyUrl;
+</script>
 </body>
 </html>
