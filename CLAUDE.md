@@ -9,17 +9,20 @@ This is an Express.js + Handlebars webcam viewer displaying real-time views of S
 ## Architecture
 
 ### Core Components
-- **`server.js`**: Express 5 server with Handlebars templating (no layouts), loads `.env` file
-- **`views/index.hbs`**: Single Handlebars template with complete HTML structure
+- **`server.js`**: Express 5 server with Handlebars templating (no layouts), loads `.env` file, serves HTMX
+- **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh (60s interval)
+- **`views/webcams.hbs`**: Partial template for HTMX content updates
 - **`services/googleSheets.js`**: Google Sheets API v4 service for dynamic webcam data fetching
 - **`functions/api/panoramicam.js`**: Cloudflare Functions proxy for handling CORS-restricted panoramicam.eu sources
 - **`public/`**: Static assets (favicon, etc.)
-- **`tests/`**: Jest test suite with comprehensive coverage
+- **`tests/`**: Jest test suite with comprehensive coverage (21 tests)
 
 ### Data Flow
-1. **Google Sheets Only**: Fetch webcam data from Google Sheets API v4 on each request
-2. **Error Handling**: Return 500 error if Google Sheets fails (no fallback data)
-3. **Template**: Handlebars renders data from Google Sheets
+1. **Initial Load**: Full page render with webcam data from Google Sheets API v4
+2. **Auto-Refresh**: HTMX updates webcam container every 60 seconds via `/webcams` endpoint
+3. **No Browser Flicker**: Content updates in-place without page reload or browser spinner
+4. **Error Handling**: Return 500 error if Google Sheets fails (no fallback data)
+5. **Template**: Handlebars renders data from Google Sheets
 
 ### Google Sheets Integration
 - **API**: Google Sheets API v4 (not visualization API)
@@ -37,8 +40,10 @@ Required in `.env` file:
 - `PORT`: Server port (defaults to 3000)
 
 ### Template System
-- Single template approach (no layouts)
-- Handlebars renders complete HTML document
+- **Main Template** (`index.hbs`): Complete HTML document with HTMX integration
+- **Partial Template** (`webcams.hbs`): Webcam grid for HTMX updates
+- **HTMX Attributes**: `hx-get="/webcams"`, `hx-trigger="every 60s"`, `hx-swap="innerHTML"`
+- **No Layouts**: Single template approach
 - Uses `{{#each webcams}}` to iterate through webcam data
 - Preserves original CSS styling and responsive design
 
@@ -63,9 +68,15 @@ https://webcams.parabola.si/api/panoramicam?targetUrl=ENCODED_URL&referer=https%
 
 ### Testing
 ```bash
-npm test         # Run all tests (Jest + Supertest)
+npm test         # Run all tests (Jest + Supertest) - 21 tests
 npm run test:watch  # Run tests in watch mode
 ```
+
+**Test Coverage**:
+- Express routes: `/`, `/webcams`, `/htmx.min.js`
+- Google Sheets service integration
+- HTMX functionality and partial templates
+- Error handling scenarios
 
 **Note**: Test console output includes expected error messages from error handling scenarios - all tests should pass.
 
@@ -87,7 +98,7 @@ npm run dev      # User will always start this themselves
 Add webcams directly to the Google Sheet:
 - Column A: Webcam name
 - Column B: Webcam URL
-- Changes appear immediately on next page load
+- Changes appear within 60 seconds via HTMX auto-refresh
 
 No need to modify templates - Handlebars automatically renders new webcams.
 
@@ -110,12 +121,31 @@ Query parameters:
 - **Images**: Fill container with `width: 100%; height: 100%`
 - **Container**: Full viewport dimensions with flexbox
 
+## HTMX Integration
+
+### Auto-Refresh Functionality
+- **Refresh Interval**: 60 seconds (same as original meta refresh)
+- **No Browser Flicker**: Content updates in-place without page reload
+- **No Browser Spinner**: Page stays loaded, only webcam content refreshes
+- **HTMX Library**: Served directly from `node_modules/htmx.org/dist/htmx.min.js`
+- **Fallback**: Graceful degradation if JavaScript disabled
+
+### Routes
+- **`GET /`**: Main page with full HTML and HTMX
+- **`GET /webcams`**: Partial template for HTMX content updates
+- **`GET /htmx.min.js`**: HTMX library served from node_modules
+
+### Dependencies
+- **htmx.org@2.0.6**: Installed via npm for easy upgrades
+- **Express static middleware**: Serves HTMX directly from node_modules
+
 ## Development Guidelines
 
 ### Testing
 - **ALWAYS run `npm test` after making any code changes**
-- All tests must pass before committing changes
+- All tests must pass before committing changes (21 tests total)
 - Tests include expected error messages from error handling scenarios
+- HTMX functionality covered by integration tests
 
 ## Git
 - Create short "one liner" commit messages and prepend "ask claude to..." without appending "Generated with"

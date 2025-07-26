@@ -18,14 +18,19 @@ const createTestApp = () => {
   app.set('views', './views');
   
   app.use(express.static('public'));
+  app.use('/htmx.min.js', express.static('node_modules/htmx.org/dist/htmx.min.js'));
   
-  app.get('/', async (req, res) => {
+  app.get('/', (req, res) => {
+    res.render('index');
+  });
+
+  app.get('/webcams', async (req, res) => {
     try {
       const webcams = await mockGoogleSheets.fetchWebcams();
-      res.render('index', { webcams });
+      res.render('webcams', { webcams });
     } catch (error) {
-      console.error('Error rendering page:', error);
-      res.status(500).send('Google Sheets unavailable. Please check configuration.');
+      console.error('Error fetching webcams:', error);
+      res.status(500).send('Error loading webcams');
     }
   });
   
@@ -41,56 +46,40 @@ describe('Express App', () => {
   });
 
   describe('GET /', () => {
-    test('should render webcam page successfully', async () => {
-      const mockWebcams = [
-        { name: 'Test Webcam 1', url: 'https://example.com/cam1.jpg' },
-        { name: 'Test Webcam 2', url: 'https://example.com/cam2.jpg' }
-      ];
-
-      mockGoogleSheets.fetchWebcams.mockResolvedValue(mockWebcams);
-
-      const response = await request(app)
-        .get('/')
-        .expect(200);
-
-      expect(response.text).toContain('Test Webcam 1');
-      expect(response.text).toContain('Test Webcam 2');
-      expect(response.text).toContain('https://example.com/cam1.jpg');
-      expect(response.text).toContain('https://example.com/cam2.jpg');
-      expect(response.text).toContain('<title>Webcams</title>');
-      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
-    });
-
-    test('should handle empty webcam list', async () => {
-      mockGoogleSheets.fetchWebcams.mockResolvedValue([]);
-
+    test('should render main page with HTMX container', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
 
       expect(response.text).toContain('<title>Webcams</title>');
-      expect(response.text).toContain('<div class="container">');
-      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+      expect(response.text).toContain('hx-get="/webcams"');
+      expect(response.text).toContain('hx-trigger="load, every 60s"');
+      expect(response.text).toContain('<script src="/htmx.min.js"></script>');
+      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
     });
 
-    test('should handle Google Sheets service errors', async () => {
-      mockGoogleSheets.fetchWebcams.mockRejectedValue(new Error('Service error'));
-
+    test('should render empty container ready for HTMX', async () => {
       const response = await request(app)
         .get('/')
-        .expect(500);
+        .expect(200);
 
-      expect(response.text).toBe('Google Sheets unavailable. Please check configuration.');
-      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+      expect(response.text).toContain('<title>Webcams</title>');
+      expect(response.text).toContain('<div class="container"');
+      expect(response.text).toContain('hx-get="/webcams"');
+      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
     });
 
-    test('should render proper HTML structure', async () => {
-      const mockWebcams = [
-        { name: 'Mountain View', url: 'https://example.com/mountain.jpg' }
-      ];
+    test('should render page regardless of Google Sheets status', async () => {
+      const response = await request(app)
+        .get('/')
+        .expect(200);
 
-      mockGoogleSheets.fetchWebcams.mockResolvedValue(mockWebcams);
+      expect(response.text).toContain('<title>Webcams</title>');
+      expect(response.text).toContain('hx-get="/webcams"');
+      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+    });
 
+    test('should render proper HTML structure with HTMX', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
@@ -100,7 +89,7 @@ describe('Express App', () => {
       expect(response.text).toContain('<html lang="en">');
       expect(response.text).toContain('<meta charset="UTF-8">');
       expect(response.text).toContain('<meta name="viewport"');
-      expect(response.text).toContain('<meta http-equiv="refresh" content="60">');
+      expect(response.text).toContain('<script src="/htmx.min.js"></script>');
       expect(response.text).toContain('<title>Webcams</title>');
       expect(response.text).toContain('<link rel="icon" href="favicon.ico"');
       
@@ -110,37 +99,89 @@ describe('Express App', () => {
       expect(response.text).toContain('.image {');
       expect(response.text).toContain('@media (max-width: 600px)');
       
-      // Check for webcam rendering
-      expect(response.text).toContain('<div class="image">');
-      expect(response.text).toContain('<img src="https://example.com/mountain.jpg" alt="Mountain View">');
+      // Check for HTMX attributes
+      expect(response.text).toContain('hx-get="/webcams"');
+      expect(response.text).toContain('hx-trigger="load, every 60s"');
+      expect(response.text).toContain('hx-swap="innerHTML"');
+      
+      // Should not contain webcam content initially
+      expect(response.text).not.toContain('<div class="image">');
+      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
     });
 
-    test('should render multiple webcams correctly', async () => {
+    test('should render empty container for HTMX to populate', async () => {
+      const response = await request(app)
+        .get('/')
+        .expect(200);
+
+      // Should have empty container ready for HTMX
+      expect(response.text).toContain('<div class="container"');
+      expect(response.text).toContain('hx-get="/webcams"');
+      
+      // Should not have any image divs initially
+      const imageDivMatches = response.text.match(/<div class="image">/g);
+      expect(imageDivMatches).toBeNull();
+
+      // Should not have any img tags initially
+      const imgMatches = response.text.match(/<img src=/g);
+      expect(imgMatches).toBeNull();
+      
+      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /webcams', () => {
+    test('should render webcam partial successfully', async () => {
       const mockWebcams = [
-        { name: 'Webcam 1', url: 'https://example.com/1.jpg' },
-        { name: 'Webcam 2', url: 'https://example.com/2.jpg' },
-        { name: 'Webcam 3', url: 'https://example.com/3.jpg' }
+        { name: 'Test Webcam 1', url: 'https://example.com/cam1.jpg' },
+        { name: 'Test Webcam 2', url: 'https://example.com/cam2.jpg' }
       ];
 
       mockGoogleSheets.fetchWebcams.mockResolvedValue(mockWebcams);
 
       const response = await request(app)
-        .get('/')
+        .get('/webcams')
         .expect(200);
 
-      // Should have three image divs
-      const imageDivMatches = response.text.match(/<div class="image">/g);
-      expect(imageDivMatches).toHaveLength(3);
+      expect(response.text).toContain('Test Webcam 1');
+      expect(response.text).toContain('Test Webcam 2');
+      expect(response.text).toContain('https://example.com/cam1.jpg');
+      expect(response.text).toContain('https://example.com/cam2.jpg');
+      expect(response.text).toContain('<div class="image">');
+      expect(response.text).not.toContain('<html>'); // Should be partial, not full HTML
+      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+    });
 
-      // Should have three img tags
-      const imgMatches = response.text.match(/<img src=/g);
-      expect(imgMatches).toHaveLength(3);
+    test('should handle Google Sheets service errors', async () => {
+      mockGoogleSheets.fetchWebcams.mockRejectedValue(new Error('Service error'));
 
-      // Check each webcam is rendered
-      mockWebcams.forEach(webcam => {
-        expect(response.text).toContain(`alt="${webcam.name}"`);
-        expect(response.text).toContain(`src="${webcam.url}"`);
-      });
+      const response = await request(app)
+        .get('/webcams')
+        .expect(500);
+
+      expect(response.text).toBe('Error loading webcams');
+      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+    });
+
+    test('should render empty partial for no webcams', async () => {
+      mockGoogleSheets.fetchWebcams.mockResolvedValue([]);
+
+      const response = await request(app)
+        .get('/webcams')
+        .expect(200);
+
+      expect(response.text.trim()).toBe('');
+      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /htmx.min.js', () => {
+    test('should serve HTMX library', async () => {
+      const response = await request(app)
+        .get('/htmx.min.js')
+        .expect(200);
+
+      expect(response.headers['content-type']).toMatch(/javascript/);
     });
   });
 });
