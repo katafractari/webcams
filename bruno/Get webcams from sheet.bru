@@ -1,0 +1,20 @@
+meta {
+  name: Get webcams from sheet
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://sheets.googleapis.com/v4/spreadsheets/:sheetId/values/:range?key={{GOOGLE_API_KEY}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  key: {{GOOGLE_API_KEY}}
+}
+
+params:path {
+  range: A2:B
+  sheetId: 1fTpq-byzsvorGGV6_xmwR_DWCmmOPGSixmp808iCSAQ
+}
