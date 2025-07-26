@@ -149,3 +149,8 @@ Query parameters:
 
 ## Git
 - Create short "one liner" commit messages and prepend "ask claude to..." without appending "Generated with"
+
+## Documentation
+- **NEVER create additional markdown files** beyond README.md and CLAUDE.md
+- All documentation should go into existing README.md or CLAUDE.md files
+- Avoid creating files like DEPLOYMENT.md, CONTRIBUTING.md, etc.
