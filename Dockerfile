@@ -1,5 +1,5 @@
 # Use official Node.js LTS image for ARM64 (Raspberry Pi 4)
-FROM node:22.17.1-alpine
+FROM node:24.11.1-alpine
 
 # Set working directory
 WORKDIR /app
