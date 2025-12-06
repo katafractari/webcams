@@ -11,7 +11,6 @@ class GoogleSheetsService {
 
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
       
-      console.log('Fetching webcam data from Google Sheets API v4...');
       const response = await fetch(url, {
         timeout: 10000 // 10 second timeout
       });
@@ -26,10 +25,7 @@ class GoogleSheetsService {
         throw new Error(`Google Sheets API error: ${data.error.message}`);
       }
 
-      const webcams = this.parseWebcamData(data);
-      
-      console.log(`Successfully fetched ${webcams.length} webcams from Google Sheets`);
-      return webcams;
+      return this.parseWebcamData(data);
 
     } catch (error) {
       console.error('Error fetching from Google Sheets:', error.message);

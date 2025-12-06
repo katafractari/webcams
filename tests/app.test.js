@@ -1,67 +1,24 @@
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const request = require('supertest');
-const express = require('express');
-const { engine } = require('express-handlebars');
+const createApp = require('../server');
 
 // Load environment variables
 require('./setup');
-
-// Create test app with mock Google Sheets service
-const createTestApp = () => {
-  const app = express();
-  
-  app.engine('hbs', engine({
-    extname: '.hbs',
-    defaultLayout: false
-  }));
-  app.set('view engine', 'hbs');
-  app.set('views', './views');
-  
-  app.use(express.static('public'));
-  app.use('/htmx.min.js', express.static('node_modules/htmx.org/dist/htmx.min.js'));
-  
-  app.get('/', (req, res) => {
-    res.render('index');
-  });
-
-  // Mock Google Sheets service for testing
-  const mockGoogleSheets = {
-    fetchWebcams: null,
-    _calls: 0,
-    _reset() {
-      this._calls = 0;
-    }
-  };
-
-  app.get('/webcams', async (req, res) => {
-    try {
-      mockGoogleSheets._calls++;
-      const webcams = await mockGoogleSheets.fetchWebcams();
-      res.render('webcams', { webcams });
-    } catch (error) {
-      console.error('Error fetching webcams:', error);
-      res.status(500).send('Error loading webcams');
-    }
-  });
-  
-  // Expose mock for testing
-  app._mockGoogleSheets = mockGoogleSheets;
-  
-  return app;
-};
 
 describe('Express App', () => {
   let app;
   let mockGoogleSheets;
 
   beforeEach(() => {
-    app = createTestApp();
-    mockGoogleSheets = app._mockGoogleSheets;
-    mockGoogleSheets._reset();
-    
-    // Setup default mock function
-    mockGoogleSheets.fetchWebcams = async () => [];
+    // Mock Google Sheets service for testing
+    mockGoogleSheets = {
+      fetchWebcams: async () => [],
+      _calls: 0
+    };
+
+    // Create app with mock service
+    app = createApp(mockGoogleSheets);
   });
 
   describe('GET /', () => {
@@ -156,7 +113,10 @@ describe('Express App', () => {
         { name: 'Test Webcam 2', url: 'https://example.com/cam2.jpg' }
       ];
 
-      mockGoogleSheets.fetchWebcams = async () => mockWebcams;
+      mockGoogleSheets.fetchWebcams = async () => {
+        mockGoogleSheets._calls++;
+        return mockWebcams;
+      };
 
       const response = await request(app)
         .get('/webcams')
@@ -173,6 +133,7 @@ describe('Express App', () => {
 
     it('should handle Google Sheets service errors', async () => {
       mockGoogleSheets.fetchWebcams = async () => {
+        mockGoogleSheets._calls++;
         throw new Error('Service error');
       };
 
@@ -185,7 +146,10 @@ describe('Express App', () => {
     });
 
     it('should render empty partial for no webcams', async () => {
-      mockGoogleSheets.fetchWebcams = async () => [];
+      mockGoogleSheets.fetchWebcams = async () => {
+        mockGoogleSheets._calls++;
+        return [];
+      };
 
       const response = await request(app)
         .get('/webcams')
@@ -203,6 +167,33 @@ describe('Express App', () => {
         .expect(200);
 
       assert.ok(response.headers['content-type'].match(/javascript/));
+    });
+  });
+
+  describe('GET /api/panoramicam', () => {
+    it('should proxy image with correct headers', async () => {
+      // Mock a simple PNG image (1x1 transparent pixel)
+      const mockImageBuffer = Buffer.from([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+      ]);
+
+      // Use a test server to mock the image response
+      const testImageUrl = 'https://httpbin.org/image/png';
+      const referer = 'https://panoramicam.eu/';
+
+      const response = await request(app)
+        .get('/api/panoramicam')
+        .query({
+          targetUrl: testImageUrl,
+          referer: referer
+        })
+        .expect(200);
+
+      // Check CORS header is set
+      assert.strictEqual(response.headers['access-control-allow-origin'], '*');
+
+      // Response should have content-type header
+      assert.ok(response.headers['content-type']);
     });
   });
 });

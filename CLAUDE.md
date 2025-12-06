@@ -9,11 +9,10 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 ## Architecture
 
 ### Core Components
-- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX
+- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX, includes `/api/panoramicam` proxy endpoint
 - **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh
 - **`views/webcams.hbs`**: Partial template for HTMX content updates
 - **`services/googleSheets.js`**: Google Sheets API service for dynamic webcam data fetching
-- **`functions/api/panoramicam.js`**: Cloudflare Functions proxy for handling CORS-restricted panoramicam.eu sources
 - **`public/`**: Static assets (favicon, etc.)
 - **`tests/`**: Node.js native test runner suite with comprehensive coverage
 
@@ -61,10 +60,12 @@ To add a new panoramicam.eu webcam, encode the target URL:
 node -p "encodeURIComponent('https://liveimage.panoramicam.eu/thumbnail?application=NAME&streamname=NAME.stream&size=858x480&fitmode=letterbox&format=jpg')"
 ```
 
-Then construct the proxied URL:
+Then use the relative URL in the Google Sheet (Column B):
 ```
-https://webcams.parabola.si/api/panoramicam?targetUrl=ENCODED_URL&referer=https%3A%2F%2Fpanoramicam.eu%2F
+/api/panoramicam?targetUrl=ENCODED_URL&referer=https%3A%2F%2Fpanoramicam.eu%2F
 ```
+
+The relative URL will work in both local development and production environments.
 
 ### Testing
 ```bash
@@ -73,9 +74,10 @@ npm run test:watch  # Run tests in watch mode
 ```
 
 **Test Coverage**:
-- Express routes: `/`, `/webcams`, `/htmx.min.js`
+- Express routes: `/`, `/webcams`, `/htmx.min.js`, `/api/panoramicam`
 - Google Sheets service integration
 - HTMX functionality and partial templates
+- Panoramicam proxy endpoint with CORS handling
 - Error handling scenarios
 
 **Test Framework**: Uses Node.js native test runner (no external dependencies) with Supertest for HTTP testing and manual mocking for services.
@@ -104,9 +106,9 @@ Add webcams directly to the Google Sheet:
 
 No need to modify templates - Handlebars automatically renders new webcams.
 
-## Proxy Function (`functions/api/panoramicam.js`)
+## Panoramicam Proxy Endpoint
 
-The Cloudflare Function handles:
+The `/api/panoramicam` Express endpoint handles:
 - CORS headers for cross-origin requests
 - Proper referer header forwarding for panoramicam.eu
 - Error handling for failed image fetches
@@ -115,6 +117,8 @@ The Cloudflare Function handles:
 Query parameters:
 - `targetUrl`: URL-encoded panoramicam image URL
 - `referer`: Required referer header (usually `https://panoramicam.eu/`)
+
+**Note**: This endpoint replaces the previous Cloudflare Functions implementation.
 
 ## Layout Structure
 
@@ -136,6 +140,7 @@ Query parameters:
 - **`GET /`**: Main page with full HTML and HTMX
 - **`GET /webcams`**: Partial template for HTMX content updates
 - **`GET /htmx.min.js`**: HTMX library served from node_modules
+- **`GET /api/panoramicam`**: Image proxy for CORS-restricted panoramicam.eu sources
 
 ### Dependencies
 - **htmx.org**: Installed via npm for easy upgrades
