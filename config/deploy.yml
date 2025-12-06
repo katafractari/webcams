@@ -7,11 +7,11 @@ image: katafractari/webcams
 # Deploy to these servers.
 servers:
   web:
-    - katafractari.mooo.com
+    - katafractari
 
 proxy:
-  ssl: true
-  host: katafractari.mooo.com
+  ssl: false
+  host: webcams.parabola.si
   app_port: 3000
 
 # Credentials for your image host.

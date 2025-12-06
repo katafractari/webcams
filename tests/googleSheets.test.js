@@ -1,24 +1,57 @@
+const { describe, it, before, after, beforeEach } = require('node:test');
+const assert = require('node:assert');
+
 // Mock fetch globally before requiring the service
-global.fetch = jest.fn();
+const originalFetch = global.fetch;
+const mockFetch = {
+  _calls: [],
+  _responses: [],
+  mockResolvedValueOnce: function(response) {
+    this._responses.push(response);
+    return this;
+  },
+  mockRejectedValueOnce: function(error) {
+    this._responses.push({ _reject: true, _error: error });
+    return this;
+  }
+};
+
+global.fetch = async function(url, options) {
+  mockFetch._calls.push({ url, options });
+  
+  const response = mockFetch._responses.shift();
+  if (!response) {
+    throw new Error('No mocked response available');
+  }
+  
+  if (response._reject) {
+    throw response._error;
+  }
+  
+  return response;
+};
 
 const GoogleSheetsService = require('../services/googleSheets');
 
 describe('GoogleSheetsService', () => {
   let originalEnv;
   
-  beforeAll(() => {
+  before(() => {
     // Save original environment
     originalEnv = process.env;
   });
   
-  afterAll(() => {
+  after(() => {
     // Restore original environment
     process.env = originalEnv;
+    // Restore original fetch
+    global.fetch = originalFetch;
   });
   
   beforeEach(() => {
     // Clear all mocks before each test
-    jest.clearAllMocks();
+    mockFetch._calls = [];
+    mockFetch._responses = [];
     
     // Create a clean environment for each test
     process.env = { ...originalEnv };
@@ -28,21 +61,27 @@ describe('GoogleSheetsService', () => {
   });
 
   describe('fetchWebcams', () => {
-    test('should throw error when GOOGLE_SHEET_ID is not configured', async () => {
+    it('should throw error when GOOGLE_SHEET_ID is not configured', async () => {
       process.env.GOOGLE_SHEETS_API_KEY = 'test-api-key';
       
-      await expect(GoogleSheetsService.fetchWebcams()).rejects.toThrow('GOOGLE_SHEET_ID or GOOGLE_SHEETS_API_KEY not configured');
-      expect(fetch).not.toHaveBeenCalled();
+      await assert.rejects(
+        async () => GoogleSheetsService.fetchWebcams(),
+        /GOOGLE_SHEET_ID or GOOGLE_SHEETS_API_KEY not configured/
+      );
+      assert.strictEqual(mockFetch._calls.length, 0);
     });
 
-    test('should throw error when GOOGLE_SHEETS_API_KEY is not configured', async () => {
+    it('should throw error when GOOGLE_SHEETS_API_KEY is not configured', async () => {
       process.env.GOOGLE_SHEET_ID = 'test-sheet-id';
       
-      await expect(GoogleSheetsService.fetchWebcams()).rejects.toThrow('GOOGLE_SHEET_ID or GOOGLE_SHEETS_API_KEY not configured');
-      expect(fetch).not.toHaveBeenCalled();
+      await assert.rejects(
+        async () => GoogleSheetsService.fetchWebcams(),
+        /GOOGLE_SHEET_ID or GOOGLE_SHEETS_API_KEY not configured/
+      );
+      assert.strictEqual(mockFetch._calls.length, 0);
     });
 
-    test('should fetch data from Google Sheets API v4 when configured', async () => {
+    it('should fetch data from Google Sheets API v4 when configured', async () => {
       process.env.GOOGLE_SHEET_ID = 'test-sheet-id';
       process.env.GOOGLE_SHEETS_API_KEY = 'test-api-key';
       
@@ -55,29 +94,32 @@ describe('GoogleSheetsService', () => {
         ]
       };
 
-      fetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockApiResponse
       });
 
       const result = await GoogleSheetsService.fetchWebcams();
 
-      expect(fetch).toHaveBeenCalledWith(
-        'https://sheets.googleapis.com/v4/spreadsheets/test-sheet-id/values/A2:B?key=test-api-key',
-        { timeout: 10000 }
+      assert.strictEqual(mockFetch._calls.length, 1);
+      assert.strictEqual(
+        mockFetch._calls[0].url,
+        'https://sheets.googleapis.com/v4/spreadsheets/test-sheet-id/values/A2:B?key=test-api-key'
       );
-      expect(result).toEqual([
+      assert.deepStrictEqual(mockFetch._calls[0].options, { timeout: 10000 });
+      
+      assert.deepStrictEqual(result, [
         { name: 'Test Webcam 1', url: 'https://example.com/cam1.jpg' },
         { name: 'Test Webcam 2', url: 'https://example.com/cam2.jpg' }
       ]);
     });
 
-    test('should use custom range when SHEET_RANGE is set', async () => {
+    it('should use custom range when SHEET_RANGE is set', async () => {
       process.env.GOOGLE_SHEET_ID = 'test-sheet-id';
       process.env.GOOGLE_SHEETS_API_KEY = 'test-api-key';
       process.env.SHEET_RANGE = 'Sheet1!A1:B10';
 
-      fetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ 
           values: [
@@ -88,35 +130,42 @@ describe('GoogleSheetsService', () => {
 
       await GoogleSheetsService.fetchWebcams();
 
-      expect(fetch).toHaveBeenCalledWith(
-        'https://sheets.googleapis.com/v4/spreadsheets/test-sheet-id/values/Sheet1!A1:B10?key=test-api-key',
-        { timeout: 10000 }
+      assert.strictEqual(mockFetch._calls.length, 1);
+      assert.strictEqual(
+        mockFetch._calls[0].url,
+        'https://sheets.googleapis.com/v4/spreadsheets/test-sheet-id/values/Sheet1!A1:B10?key=test-api-key'
       );
     });
 
-    test('should throw error when fetch fails', async () => {
+    it('should throw error when fetch fails', async () => {
       process.env.GOOGLE_SHEET_ID = 'test-sheet-id';
       process.env.GOOGLE_SHEETS_API_KEY = 'test-api-key';
       
-      fetch.mockRejectedValueOnce(new Error('Network error'));
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(GoogleSheetsService.fetchWebcams()).rejects.toThrow('Network error');
+      await assert.rejects(
+        async () => GoogleSheetsService.fetchWebcams(),
+        /Network error/
+      );
     });
 
-    test('should throw error when HTTP response is not ok', async () => {
+    it('should throw error when HTTP response is not ok', async () => {
       process.env.GOOGLE_SHEET_ID = 'test-sheet-id';
       process.env.GOOGLE_SHEETS_API_KEY = 'test-api-key';
       
-      fetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 403,
         statusText: 'Forbidden'
       });
 
-      await expect(GoogleSheetsService.fetchWebcams()).rejects.toThrow('HTTP 403: Forbidden');
+      await assert.rejects(
+        async () => GoogleSheetsService.fetchWebcams(),
+        /HTTP 403: Forbidden/
+      );
     });
 
-    test('should throw error for Google Sheets API errors', async () => {
+    it('should throw error for Google Sheets API errors', async () => {
       process.env.GOOGLE_SHEET_ID = 'test-sheet-id';
       process.env.GOOGLE_SHEETS_API_KEY = 'invalid-key';
       
@@ -127,17 +176,20 @@ describe('GoogleSheetsService', () => {
         }
       };
 
-      fetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockErrorResponse
       });
 
-      await expect(GoogleSheetsService.fetchWebcams()).rejects.toThrow('Google Sheets API error: API key not valid');
+      await assert.rejects(
+        async () => GoogleSheetsService.fetchWebcams(),
+        /Google Sheets API error: API key not valid/
+      );
     });
   });
 
   describe('parseWebcamData', () => {
-    test('should parse valid Google Sheets API v4 data', () => {
+    it('should parse valid Google Sheets API v4 data', () => {
       const mockData = {
         values: [
           ['Webcam 1', 'https://example.com/1.jpg'],
@@ -147,13 +199,13 @@ describe('GoogleSheetsService', () => {
 
       const result = GoogleSheetsService.parseWebcamData(mockData);
 
-      expect(result).toEqual([
+      assert.deepStrictEqual(result, [
         { name: 'Webcam 1', url: 'https://example.com/1.jpg' },
         { name: 'Webcam 2', url: 'https://example.com/2.jpg' }
       ]);
     });
 
-    test('should skip rows with missing data', () => {
+    it('should skip rows with missing data', () => {
       const mockData = {
         values: [
           ['Webcam 1', 'https://example.com/1.jpg'],
@@ -165,31 +217,33 @@ describe('GoogleSheetsService', () => {
 
       const result = GoogleSheetsService.parseWebcamData(mockData);
 
-      expect(result).toEqual([
+      assert.deepStrictEqual(result, [
         { name: 'Webcam 1', url: 'https://example.com/1.jpg' },
         { name: 'Webcam 4', url: 'https://example.com/4.jpg' }
       ]);
     });
 
-    test('should throw error when no values in response', () => {
+    it('should throw error when no values in response', () => {
       const mockData = {};
 
-      expect(() => {
-        GoogleSheetsService.parseWebcamData(mockData);
-      }).toThrow('No values found in Google Sheets response');
+      assert.throws(
+        () => GoogleSheetsService.parseWebcamData(mockData),
+        /No values found in Google Sheets response/
+      );
     });
 
-    test('should throw error when values is not an array', () => {
+    it('should throw error when values is not an array', () => {
       const mockData = {
         values: 'not an array'
       };
 
-      expect(() => {
-        GoogleSheetsService.parseWebcamData(mockData);
-      }).toThrow('No values found in Google Sheets response');
+      assert.throws(
+        () => GoogleSheetsService.parseWebcamData(mockData),
+        /No values found in Google Sheets response/
+      );
     });
 
-    test('should throw error when no valid webcam data found', () => {
+    it('should throw error when no valid webcam data found', () => {
       const mockData = {
         values: [
           [],
@@ -198,9 +252,10 @@ describe('GoogleSheetsService', () => {
         ]
       };
 
-      expect(() => {
-        GoogleSheetsService.parseWebcamData(mockData);
-      }).toThrow('No valid webcam data found in sheet');
+      assert.throws(
+        () => GoogleSheetsService.parseWebcamData(mockData),
+        /No valid webcam data found in sheet/
+      );
     });
   });
 });

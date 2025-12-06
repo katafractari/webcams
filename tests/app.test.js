@@ -1,12 +1,13 @@
+const { describe, it, beforeEach } = require('node:test');
+const assert = require('node:assert');
 const request = require('supertest');
 const express = require('express');
 const { engine } = require('express-handlebars');
 
-// Mock the Google Sheets service
-jest.mock('../services/googleSheets');
-const mockGoogleSheets = require('../services/googleSheets');
+// Load environment variables
+require('./setup');
 
-// Create test app
+// Create test app with mock Google Sheets service
 const createTestApp = () => {
   const app = express();
   
@@ -24,8 +25,18 @@ const createTestApp = () => {
     res.render('index');
   });
 
+  // Mock Google Sheets service for testing
+  const mockGoogleSheets = {
+    fetchWebcams: null,
+    _calls: 0,
+    _reset() {
+      this._calls = 0;
+    }
+  };
+
   app.get('/webcams', async (req, res) => {
     try {
+      mockGoogleSheets._calls++;
       const webcams = await mockGoogleSheets.fetchWebcams();
       res.render('webcams', { webcams });
     } catch (error) {
@@ -34,154 +45,164 @@ const createTestApp = () => {
     }
   });
   
+  // Expose mock for testing
+  app._mockGoogleSheets = mockGoogleSheets;
+  
   return app;
 };
 
 describe('Express App', () => {
   let app;
+  let mockGoogleSheets;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     app = createTestApp();
+    mockGoogleSheets = app._mockGoogleSheets;
+    mockGoogleSheets._reset();
+    
+    // Setup default mock function
+    mockGoogleSheets.fetchWebcams = async () => [];
   });
 
   describe('GET /', () => {
-    test('should render main page with HTMX container', async () => {
+    it('should render main page with HTMX container', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
 
-      expect(response.text).toContain('<title>Webcams</title>');
-      expect(response.text).toContain('hx-get="/webcams"');
-      expect(response.text).toContain('hx-trigger="load, every 60s"');
-      expect(response.text).toContain('<script src="/htmx.min.js"></script>');
-      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+      assert.ok(response.text.includes('<title>Webcams</title>'));
+      assert.ok(response.text.includes('hx-get="/webcams"'));
+      assert.ok(response.text.includes('hx-trigger="load, every 60s"'));
+      assert.ok(response.text.includes('<script src="/htmx.min.js"></script>'));
+      assert.strictEqual(mockGoogleSheets._calls, 0);
     });
 
-    test('should render empty container ready for HTMX', async () => {
+    it('should render empty container ready for HTMX', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
 
-      expect(response.text).toContain('<title>Webcams</title>');
-      expect(response.text).toContain('<div class="container"');
-      expect(response.text).toContain('hx-get="/webcams"');
-      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+      assert.ok(response.text.includes('<title>Webcams</title>'));
+      assert.ok(response.text.includes('<div class="container"'));
+      assert.ok(response.text.includes('hx-get="/webcams"'));
+      assert.strictEqual(mockGoogleSheets._calls, 0);
     });
 
-    test('should render page regardless of Google Sheets status', async () => {
+    it('should render page regardless of Google Sheets status', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
 
-      expect(response.text).toContain('<title>Webcams</title>');
-      expect(response.text).toContain('hx-get="/webcams"');
-      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+      assert.ok(response.text.includes('<title>Webcams</title>'));
+      assert.ok(response.text.includes('hx-get="/webcams"'));
+      assert.strictEqual(mockGoogleSheets._calls, 0);
     });
 
-    test('should render proper HTML structure with HTMX', async () => {
+    it('should render proper HTML structure with HTMX', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
 
       // Check for proper HTML structure
-      expect(response.text).toContain('<!DOCTYPE html>');
-      expect(response.text).toContain('<html lang="en">');
-      expect(response.text).toContain('<meta charset="UTF-8">');
-      expect(response.text).toContain('<meta name="viewport"');
-      expect(response.text).toContain('<script src="/htmx.min.js"></script>');
-      expect(response.text).toContain('<title>Webcams</title>');
-      expect(response.text).toContain('<link rel="icon" href="favicon.ico"');
+      assert.ok(response.text.includes('<!DOCTYPE html>'));
+      assert.ok(response.text.includes('<html lang="en">'));
+      assert.ok(response.text.includes('<meta charset="UTF-8">'));
+      assert.ok(response.text.includes('<meta name="viewport"'));
+      assert.ok(response.text.includes('<script src="/htmx.min.js"></script>'));
+      assert.ok(response.text.includes('<title>Webcams</title>'));
+      assert.ok(response.text.includes('<link rel="icon" href="favicon.ico"'));
       
       // Check for CSS styles
-      expect(response.text).toContain('body {');
-      expect(response.text).toContain('.container {');
-      expect(response.text).toContain('.image {');
-      expect(response.text).toContain('@media (max-width: 600px)');
+      assert.ok(response.text.includes('body {'));
+      assert.ok(response.text.includes('.container {'));
+      assert.ok(response.text.includes('.image {'));
+      assert.ok(response.text.includes('@media (max-width: 600px)'));
       
       // Check for HTMX attributes
-      expect(response.text).toContain('hx-get="/webcams"');
-      expect(response.text).toContain('hx-trigger="load, every 60s"');
-      expect(response.text).toContain('hx-swap="innerHTML"');
+      assert.ok(response.text.includes('hx-get="/webcams"'));
+      assert.ok(response.text.includes('hx-trigger="load, every 60s"'));
+      assert.ok(response.text.includes('hx-swap="innerHTML"'));
       
       // Should not contain webcam content initially
-      expect(response.text).not.toContain('<div class="image">');
-      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+      assert.ok(!response.text.includes('<div class="image">'));
+      assert.strictEqual(mockGoogleSheets._calls, 0);
     });
 
-    test('should render empty container for HTMX to populate', async () => {
+    it('should render empty container for HTMX to populate', async () => {
       const response = await request(app)
         .get('/')
         .expect(200);
 
       // Should have empty container ready for HTMX
-      expect(response.text).toContain('<div class="container"');
-      expect(response.text).toContain('hx-get="/webcams"');
+      assert.ok(response.text.includes('<div class="container"'));
+      assert.ok(response.text.includes('hx-get="/webcams"'));
       
       // Should not have any image divs initially
       const imageDivMatches = response.text.match(/<div class="image">/g);
-      expect(imageDivMatches).toBeNull();
+      assert.strictEqual(imageDivMatches, null);
 
       // Should not have any img tags initially
       const imgMatches = response.text.match(/<img src=/g);
-      expect(imgMatches).toBeNull();
+      assert.strictEqual(imgMatches, null);
       
-      expect(mockGoogleSheets.fetchWebcams).not.toHaveBeenCalled();
+      assert.strictEqual(mockGoogleSheets._calls, 0);
     });
   });
 
   describe('GET /webcams', () => {
-    test('should render webcam partial successfully', async () => {
+    it('should render webcam partial successfully', async () => {
       const mockWebcams = [
         { name: 'Test Webcam 1', url: 'https://example.com/cam1.jpg' },
         { name: 'Test Webcam 2', url: 'https://example.com/cam2.jpg' }
       ];
 
-      mockGoogleSheets.fetchWebcams.mockResolvedValue(mockWebcams);
+      mockGoogleSheets.fetchWebcams = async () => mockWebcams;
 
       const response = await request(app)
         .get('/webcams')
         .expect(200);
 
-      expect(response.text).toContain('Test Webcam 1');
-      expect(response.text).toContain('Test Webcam 2');
-      expect(response.text).toContain('https://example.com/cam1.jpg');
-      expect(response.text).toContain('https://example.com/cam2.jpg');
-      expect(response.text).toContain('<div class="image">');
-      expect(response.text).not.toContain('<html>'); // Should be partial, not full HTML
-      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+      assert.ok(response.text.includes('Test Webcam 1'));
+      assert.ok(response.text.includes('Test Webcam 2'));
+      assert.ok(response.text.includes('https://example.com/cam1.jpg'));
+      assert.ok(response.text.includes('https://example.com/cam2.jpg'));
+      assert.ok(response.text.includes('<div class="image">'));
+      assert.ok(!response.text.includes('<html>')); // Should be partial, not full HTML
+      assert.strictEqual(mockGoogleSheets._calls, 1);
     });
 
-    test('should handle Google Sheets service errors', async () => {
-      mockGoogleSheets.fetchWebcams.mockRejectedValue(new Error('Service error'));
+    it('should handle Google Sheets service errors', async () => {
+      mockGoogleSheets.fetchWebcams = async () => {
+        throw new Error('Service error');
+      };
 
       const response = await request(app)
         .get('/webcams')
         .expect(500);
 
-      expect(response.text).toBe('Error loading webcams');
-      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+      assert.strictEqual(response.text, 'Error loading webcams');
+      assert.strictEqual(mockGoogleSheets._calls, 1);
     });
 
-    test('should render empty partial for no webcams', async () => {
-      mockGoogleSheets.fetchWebcams.mockResolvedValue([]);
+    it('should render empty partial for no webcams', async () => {
+      mockGoogleSheets.fetchWebcams = async () => [];
 
       const response = await request(app)
         .get('/webcams')
         .expect(200);
 
-      expect(response.text.trim()).toBe('');
-      expect(mockGoogleSheets.fetchWebcams).toHaveBeenCalledTimes(1);
+      assert.strictEqual(response.text.trim(), '');
+      assert.strictEqual(mockGoogleSheets._calls, 1);
     });
   });
 
   describe('GET /htmx.min.js', () => {
-    test('should serve HTMX library', async () => {
+    it('should serve HTMX library', async () => {
       const response = await request(app)
         .get('/htmx.min.js')
         .expect(200);
 
-      expect(response.headers['content-type']).toMatch(/javascript/);
+      assert.ok(response.headers['content-type'].match(/javascript/));
     });
   });
 });

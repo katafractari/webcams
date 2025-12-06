@@ -15,7 +15,7 @@ This is an Express.js + Handlebars webcam viewer displaying real-time views of S
 - **`services/googleSheets.js`**: Google Sheets API v4 service for dynamic webcam data fetching
 - **`functions/api/panoramicam.js`**: Cloudflare Functions proxy for handling CORS-restricted panoramicam.eu sources
 - **`public/`**: Static assets (favicon, etc.)
-- **`tests/`**: Jest test suite with comprehensive coverage (21 tests)
+- **`tests/`**: Node.js native test runner suite with comprehensive coverage (21 tests)
 
 ### Data Flow
 1. **Initial Load**: Full page render with webcam data from Google Sheets API v4
@@ -68,7 +68,7 @@ https://webcams.parabola.si/api/panoramicam?targetUrl=ENCODED_URL&referer=https%
 
 ### Testing
 ```bash
-npm test         # Run all tests (Jest + Supertest) - 21 tests
+npm test         # Run all tests (Node.js native test runner + Supertest) - 21 tests
 npm run test:watch  # Run tests in watch mode
 ```
 
@@ -77,6 +77,8 @@ npm run test:watch  # Run tests in watch mode
 - Google Sheets service integration
 - HTMX functionality and partial templates
 - Error handling scenarios
+
+**Test Framework**: Uses Node.js native test runner (no external dependencies) with Supertest for HTTP testing and manual mocking for services.
 
 **Note**: Test console output includes expected error messages from error handling scenarios - all tests should pass.
 
@@ -144,6 +146,7 @@ Query parameters:
 ### Testing
 - **ALWAYS run `npm test` after making any code changes**
 - All tests must pass before committing changes (21 tests total)
+- Uses Node.js native test runner (no external test framework dependencies)
 - Tests include expected error messages from error handling scenarios
 - HTMX functionality covered by integration tests
 
