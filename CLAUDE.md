@@ -4,28 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an Express.js + Handlebars webcam viewer displaying real-time views of Slovenian mountain areas. The project shows 31+ webcam feeds in a responsive grid layout, covering popular hiking destinations, mountain huts, and weather stations across the Alps.
+This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time views of Slovenian mountain areas. The project shows webcam feeds in a responsive grid layout, covering popular hiking destinations, mountain huts, and weather stations across the Alps.
 
 ## Architecture
 
 ### Core Components
-- **`server.js`**: Express 5 server with Handlebars templating (no layouts), loads `.env` file, serves HTMX
-- **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh (60s interval)
+- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX
+- **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh
 - **`views/webcams.hbs`**: Partial template for HTMX content updates
-- **`services/googleSheets.js`**: Google Sheets API v4 service for dynamic webcam data fetching
+- **`services/googleSheets.js`**: Google Sheets API service for dynamic webcam data fetching
 - **`functions/api/panoramicam.js`**: Cloudflare Functions proxy for handling CORS-restricted panoramicam.eu sources
 - **`public/`**: Static assets (favicon, etc.)
-- **`tests/`**: Node.js native test runner suite with comprehensive coverage (21 tests)
+- **`tests/`**: Node.js native test runner suite with comprehensive coverage
 
 ### Data Flow
-1. **Initial Load**: Full page render with webcam data from Google Sheets API v4
+1. **Initial Load**: Full page render with webcam data from Google Sheets API
 2. **Auto-Refresh**: HTMX updates webcam container every 60 seconds via `/webcams` endpoint
 3. **No Browser Flicker**: Content updates in-place without page reload or browser spinner
 4. **Error Handling**: Return 500 error if Google Sheets fails (no fallback data)
 5. **Template**: Handlebars renders data from Google Sheets
 
 ### Google Sheets Integration
-- **API**: Google Sheets API v4 (not visualization API)
+- **API**: Google Sheets API (not visualization API)
 - **Authentication**: API key (stored in `GOOGLE_SHEETS_API_KEY`)
 - **URL Format**: `https://sheets.googleapis.com/v4/spreadsheets/{ID}/values/{RANGE}?key={API_KEY}`
 - **Expected Format**: Column A = webcam name, Column B = webcam URL, data starts row 2
@@ -68,7 +68,7 @@ https://webcams.parabola.si/api/panoramicam?targetUrl=ENCODED_URL&referer=https%
 
 ### Testing
 ```bash
-npm test         # Run all tests (Node.js native test runner + Supertest) - 21 tests
+npm test         # Run all tests (Node.js native test runner + Supertest)
 npm run test:watch  # Run tests in watch mode
 ```
 
@@ -84,7 +84,7 @@ npm run test:watch  # Run tests in watch mode
 
 ### Local Development
 ```bash
-nvm use          # Switch to Node v22.17.1
+nvm use          # Switch to Node.js LTS version
 npm run dev      # User will always start this themselves
 ```
 
@@ -93,14 +93,14 @@ npm run dev      # User will always start this themselves
 ### GCP Project Details
 - **Project ID**: `webcams-sheets-api`
 - **API Key**: Available in `.env.example`
-- **APIs Enabled**: Google Sheets API v4
+- **APIs Enabled**: Google Sheets API
 
 ## Adding New Webcams
 
 Add webcams directly to the Google Sheet:
 - Column A: Webcam name
 - Column B: Webcam URL
-- Changes appear within 60 seconds via HTMX auto-refresh
+- Changes appear via HTMX auto-refresh
 
 No need to modify templates - Handlebars automatically renders new webcams.
 
@@ -126,7 +126,7 @@ Query parameters:
 ## HTMX Integration
 
 ### Auto-Refresh Functionality
-- **Refresh Interval**: 60 seconds (same as original meta refresh)
+- **Refresh Interval**: 60 seconds
 - **No Browser Flicker**: Content updates in-place without page reload
 - **No Browser Spinner**: Page stays loaded, only webcam content refreshes
 - **HTMX Library**: Served directly from `node_modules/htmx.org/dist/htmx.min.js`
@@ -138,14 +138,14 @@ Query parameters:
 - **`GET /htmx.min.js`**: HTMX library served from node_modules
 
 ### Dependencies
-- **htmx.org@2.0.6**: Installed via npm for easy upgrades
+- **htmx.org**: Installed via npm for easy upgrades
 - **Express static middleware**: Serves HTMX directly from node_modules
 
 ## Development Guidelines
 
 ### Testing
 - **ALWAYS run `npm test` after making any code changes**
-- All tests must pass before committing changes (21 tests total)
+- All tests must pass before committing changes
 - Uses Node.js native test runner (no external test framework dependencies)
 - Tests include expected error messages from error handling scenarios
 - HTMX functionality covered by integration tests
