@@ -98,9 +98,10 @@ describe('Express App', () => {
       const imageDivMatches = response.text.match(/<div class="image">/g);
       assert.strictEqual(imageDivMatches, null);
 
-      // Should not have any img tags initially
+      // Should only have the lightbox img tag (with empty src)
       const imgMatches = response.text.match(/<img src=/g);
-      assert.strictEqual(imgMatches, null);
+      assert.strictEqual(imgMatches.length, 1);
+      assert.ok(response.text.includes('<img src="" alt="Maximized webcam">'));
       
       assert.strictEqual(mockGoogleSheets._calls, 0);
     });
