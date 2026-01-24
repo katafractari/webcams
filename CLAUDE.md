@@ -13,7 +13,7 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 - **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh
 - **`views/webcams.hbs`**: Partial template for HTMX content updates
 - **`services/googleSheets.js`**: Google Sheets API service for dynamic webcam data fetching
-- **`public/`**: Static assets (favicon, etc.)
+- **`public/`**: Static assets (favicon, placeholder.svg, etc.)
 - **`tests/`**: Node.js native test runner suite with comprehensive coverage
 
 ### Data Flow
@@ -125,7 +125,14 @@ Query parameters:
 - **Desktop**: 3-column grid (`flex: 0 1 calc(33.333%)`)
 - **Mobile**: Single column (`flex: 1 1 100%` under 600px)
 - **Images**: Fill container with `width: 100%; height: 100%`
+- **Aspect Ratio**: Images maintain `858 / 480` aspect ratio for consistent layout
 - **Container**: Full viewport dimensions with flexbox
+
+### Fallback Placeholder
+When a webcam image fails to load, a placeholder is displayed:
+- **File**: `public/placeholder.svg` - 858x480 SVG with "Image unavailable" text
+- **Behavior**: `onerror` handler replaces failed images with `/placeholder.svg`
+- **Styling**: Failed images get `.error` class with `object-fit: contain`
 
 ## HTMX Integration
 

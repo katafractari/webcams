@@ -1,6 +1,6 @@
 {{#each webcams}}
 <div class="image">
     <span class="image-name">{{name}}</span>
-    <img src="{{url}}" alt="{{name}}" data-name="{{name}}">
+    <img src="{{url}}" alt="{{name}}" data-name="{{name}}" onerror="this.onerror=null; this.classList.add('error'); this.src='/placeholder.svg';">
 </div>
 {{/each}}
