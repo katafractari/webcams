@@ -22,7 +22,7 @@
   "homepage": "https://github.com/katafractari/webcams#readme",
   "dependencies": {
     "express": "^5.1.0",
-    "express-handlebars": "^8.0.3",
+    "express-handlebars": "^8.0.4",
     "htmx.org": "^2.0.6",
     "dotenv": "^17.2.1"
   },
