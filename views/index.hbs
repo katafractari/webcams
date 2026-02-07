@@ -7,6 +7,7 @@
     <title>Webcams</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="/htmx.min.js"></script>
+    <script src="/Sortable.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -15,7 +16,7 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            width: 100vw;
+            width: 100%;
         }
 
         .container {
@@ -94,11 +95,185 @@
             font-family: sans-serif;
             font-size: 16px;
         }
+
+        .toolbar {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .toolbar button {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-family: sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toolbar button:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .toolbar .add-btn {
+            display: none;
+            background: rgba(34, 139, 34, 0.8);
+        }
+
+        .toolbar .add-btn:hover {
+            background: rgba(34, 139, 34, 1);
+        }
+
+        .edit-controls {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            display: flex;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .edit-controls .drag-handle {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: grab;
+            font-size: 16px;
+            user-select: none;
+        }
+
+        .edit-controls .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .edit-controls button {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .edit-controls .edit-btn:hover {
+            background: rgba(59, 130, 246, 0.9);
+        }
+
+        .edit-controls .delete-btn:hover {
+            background: rgba(220, 38, 38, 0.9);
+        }
+
+        .sortable-ghost {
+            opacity: 0.4;
+        }
+
+        .sortable-chosen {
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .form-modal {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            width: 90%;
+            max-width: 480px;
+            font-family: sans-serif;
+        }
+
+        .form-modal h2 {
+            margin: 0 0 16px;
+            font-size: 18px;
+        }
+
+        .form-modal label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        .form-modal input[type="text"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .form-modal input[type="text"]:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .form-buttons button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+        }
+
+        .form-buttons button[type="submit"] {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .form-buttons button[type="submit"]:hover {
+            background: #4338ca;
+        }
+
+        .form-buttons button[type="button"] {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .form-buttons button[type="button"]:hover {
+            background: #f9fafb;
+        }
     </style>
 </head>
 <body>
+<div class="toolbar">
+    <button class="add-btn" onclick="openAddForm()">+ Add</button>
+    <button class="edit-toggle" onclick="toggleEditMode()">Edit</button>
+</div>
 <div class="container" hx-get="/webcams" hx-trigger="load, every 60s" hx-swap="innerHTML">
 </div>
+<div id="edit-form-container"></div>
 <div class="lightbox" id="lightbox">
     <span class="lightbox-name"></span>
     <img src="" alt="Maximized webcam">
@@ -107,6 +282,12 @@
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = lightbox.querySelector('img');
     const lightboxName = lightbox.querySelector('.lightbox-name');
+    const container = document.querySelector('.container');
+    const editToggle = document.querySelector('.edit-toggle');
+    const addBtn = document.querySelector('.add-btn');
+
+    let editMode = false;
+    let sortableInstance = null;
 
     function openLightbox(src, name) {
         lightboxImg.src = src;
@@ -123,14 +304,83 @@
     lightbox.addEventListener('click', closeLightbox);
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && lightbox.classList.contains('active')) {
-            closeLightbox();
+        if (e.key === 'Escape') {
+            if (lightbox.classList.contains('active')) {
+                closeLightbox();
+            }
+            if (editMode) {
+                document.getElementById('edit-form-container').innerHTML = '';
+            }
         }
     });
 
-    document.querySelector('.container').addEventListener('click', (e) => {
+    container.addEventListener('click', (e) => {
+        if (editMode) return;
         if (e.target.tagName === 'IMG') {
             openLightbox(e.target.src, e.target.dataset.name);
+        }
+    });
+
+    function toggleEditMode() {
+        editMode = !editMode;
+        if (editMode) {
+            editToggle.textContent = 'Done';
+            addBtn.style.display = 'inline-block';
+            container.removeAttribute('hx-trigger');
+            htmx.process(container);
+            htmx.ajax('GET', '/webcams?edit=true', { target: container, swap: 'innerHTML' }).then(() => {
+                initSortable();
+            });
+        } else {
+            editToggle.textContent = 'Edit';
+            addBtn.style.display = 'none';
+            document.getElementById('edit-form-container').innerHTML = '';
+            if (sortableInstance) {
+                sortableInstance.destroy();
+                sortableInstance = null;
+            }
+            container.setAttribute('hx-trigger', 'load, every 60s');
+            container.setAttribute('hx-get', '/webcams');
+            container.setAttribute('hx-swap', 'innerHTML');
+            htmx.process(container);
+            htmx.ajax('GET', '/webcams', { target: container, swap: 'innerHTML' });
+        }
+    }
+
+    function initSortable() {
+        if (sortableInstance) sortableInstance.destroy();
+        sortableInstance = new Sortable(container, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: function() {
+                const order = Array.from(container.querySelectorAll('[data-id]'))
+                    .map(el => Number(el.dataset.id));
+                fetch('/webcams/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order })
+                });
+            }
+        });
+    }
+
+    function openAddForm() {
+        htmx.ajax('GET', '/webcams/new', { target: '#edit-form-container', swap: 'innerHTML' });
+    }
+
+    // Block container auto-refresh while in edit mode
+    container.addEventListener('htmx:beforeRequest', (e) => {
+        if (editMode && e.detail.elt === container) {
+            e.preventDefault();
+        }
+    });
+
+    // Re-init sortable after HTMX swaps in edit mode (e.g. after create/delete)
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+        if (editMode && e.detail.target === container) {
+            initSortable();
         }
     });
 </script>
