@@ -23,10 +23,13 @@
   "homepage": "https://github.com/katafractari/webcams#readme",
   "dependencies": {
     "better-sqlite3": "^11.8.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "express-handlebars": "^8.0.3",
+    "google-auth-library": "^10.5.0",
     "htmx.org": "^2.0.6",
-    "dotenv": "^17.2.1"
+    "sortablejs": "^1.15.6"
   },
   "devDependencies": {
     "nodemon": "^3.1.10",

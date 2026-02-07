@@ -9,13 +9,12 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 ## Architecture
 
 ### Core Components
-- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX, includes `/api/panoramicam` proxy endpoint and backoffice CRUD routes
-- **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh
-- **`views/webcams.hbs`**: Partial template for HTMX content updates
-- **`views/backoffice.hbs`**: Full HTML page for backoffice (Tailwind CSS via CDN)
-- **`views/backoffice-webcams.hbs`**: Partial template for webcam table list
-- **`views/backoffice-webcam-row.hbs`**: Partial template for single table row (used after PUT update)
-- **`views/backoffice-form.hbs`**: Dual-purpose create/edit form partial
+- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX and SortableJS, includes Google OAuth login, cookie-based auth middleware, `/api/panoramicam` proxy endpoint and inline edit CRUD routes
+- **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh, inline edit mode with SortableJS
+- **`views/webcams.hbs`**: Partial template for HTMX content updates (view mode)
+- **`views/webcams-edit.hbs`**: Partial template for edit mode grid with drag handles and controls
+- **`views/webcams-edit-card.hbs`**: Single card partial returned after inline PUT update
+- **`views/webcams-form.hbs`**: Modal overlay form for inline create/edit
 - **`services/database.js`**: SQLite database service using `better-sqlite3` for webcam data with multi-tenancy support and CRUD operations
 - **`scripts/seed.js`**: Migration script to seed SQLite from Google Sheets
 - **`public/`**: Static assets (favicon, placeholder.svg, etc.)
@@ -23,8 +22,9 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 - **`data/`**: SQLite database storage directory (gitignored)
 
 ### Data Flow
-1. **Initial Load**: Full page render with HTMX container
-2. **Auto-Refresh**: HTMX updates webcam container every 60 seconds via `/webcams` endpoint
+1. **Authentication**: Unauthenticated users are redirected to Google OAuth; on success, a signed cookie (30 days) is set
+2. **Initial Load**: Full page render with HTMX container
+3. **Auto-Refresh**: HTMX updates webcam container every 60 seconds via `/webcams` endpoint
 3. **Database**: Webcams are fetched from a local SQLite database (`data/webcams.db`)
 4. **No Browser Flicker**: Content updates in-place without page reload or browser spinner
 5. **Error Handling**: Return 500 error if database fails (no fallback data)
@@ -34,21 +34,25 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 - **Library**: `better-sqlite3` (synchronous, fast SQLite3 binding)
 - **Database File**: `data/webcams.db` (created automatically on first run)
 - **Multi-tenancy**: Users table with webcams linked via `user_id` foreign key
-- **Default User**: `rok` (configurable via `DEFAULT_USER` env var)
+- **Authentication**: Users are identified via Google OAuth; email column links Google accounts to usernames
 
 #### Schema
 ```sql
 CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
+  email TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE UNIQUE INDEX idx_users_email ON users(email) WHERE email IS NOT NULL;
 
 CREATE TABLE webcams (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   url TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -57,7 +61,10 @@ CREATE TABLE webcams (
 ### Environment Variables
 In `.env` file:
 - `PORT`: Server port (defaults to 3000)
-- `DEFAULT_USER`: Username for webcam fetching (defaults to `rok`)
+- `COOKIE_SECRET`: Secret for signing cookies (required for auth)
+- `GOOGLE_CLIENT_ID`: Google OAuth 2.0 client ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth 2.0 client secret
+- `GOOGLE_REDIRECT_URI`: OAuth callback URL (defaults to `http://localhost:3000/auth/google/callback`)
 
 For migration only (seed script):
 - `GOOGLE_SHEET_ID`: Google Sheets document ID
@@ -65,13 +72,13 @@ For migration only (seed script):
 - `SHEET_RANGE`: Data range (defaults to A2:B)
 
 ### Template System
-- **Main Template** (`index.hbs`): Complete HTML document with HTMX integration, inline CSS
-- **Partial Template** (`webcams.hbs`): Webcam grid for HTMX updates
-- **Backoffice Templates**: `backoffice.hbs` (full page), `backoffice-webcams.hbs` (table list), `backoffice-webcam-row.hbs` (single row), `backoffice-form.hbs` (create/edit form)
+- **Main Template** (`index.hbs`): Complete HTML document with HTMX integration, SortableJS, inline CSS, edit mode toggle
+- **Partial Template** (`webcams.hbs`): Webcam grid for HTMX updates (view mode)
+- **Edit Templates**: `webcams-edit.hbs` (edit grid), `webcams-edit-card.hbs` (single card), `webcams-form.hbs` (modal form)
 - **HTMX Attributes**: `hx-get="/webcams"`, `hx-trigger="every 60s"`, `hx-swap="innerHTML"`
 - **No Layouts**: Single template approach
 - Uses `{{#each webcams}}` to iterate through webcam data
-- **Styling**: Public viewer uses inline CSS; backoffice uses Tailwind CSS via CDN
+- **Styling**: Inline CSS in main template
 
 ## Development Commands
 
@@ -104,6 +111,7 @@ The relative URL will work in both local development and production environments
 ### Testing
 
 - Omit running tests with `2>&1` in order to see error logs
+- We want to have a clean and fast test suite, so only add tests for core functionality
 
 ```bash
 npm test         # Run all tests (Node.js native test runner + Supertest)
@@ -111,11 +119,10 @@ npm run test:watch  # Run tests in watch mode
 ```
 
 **Test Coverage**:
-- Express routes: `/`, `/webcams`, `/htmx.min.js`, `/api/panoramicam`
-- Backoffice routes: GET/POST/PUT/DELETE for `/backoffice/webcams`
-- SQLite database service (schema, queries, multi-tenancy, CRUD operations)
-- HTMX functionality and partial templates
-- Panoramicam proxy endpoint with CORS handling
+- Auth: protection (redirects), OAuth routes, logout
+- Express routes: `/`, `/webcams`, `/webcams?edit=true`
+- Inline edit routes: GET/POST/PUT/DELETE for `/webcams/*`, PUT `/webcams/reorder`
+- SQLite database service (schema, queries, multi-tenancy, CRUD operations, position ordering, `ensureUserByEmail`)
 - Error handling scenarios
 
 **Test Framework**: Uses Node.js native test runner (no external test framework dependencies) with Supertest for HTTP testing. Tests use in-memory SQLite databases seeded with test data.
@@ -134,9 +141,9 @@ npm run dev      # User will always start this themselves
 ## Adding New Webcams
 
 Webcams are stored in the SQLite database. They can be managed by:
-1. **Backoffice UI**: Visit `/backoffice` to create, edit, and delete webcams
+1. **Inline Edit Mode**: Click Edit button on `/` to add, edit, delete, and reorder webcams via drag-and-drop
 2. Running the seed script to import from Google Sheets: `npm run seed`
-3. Directly inserting into the database
+4. Directly inserting into the database
 
 ## Panoramicam Proxy Endpoint
 
@@ -173,32 +180,33 @@ When a webcam image fails to load, a placeholder is displayed:
 - **HTMX Library**: Served directly from `node_modules/htmx.org/dist/htmx.min.js`
 - **Fallback**: Graceful degradation if JavaScript disabled
 
-### Routes
-- **`GET /`**: Main page with full HTML and HTMX
-- **`GET /webcams`**: Partial template for HTMX content updates
+### Auth Routes (no auth required)
+- **`GET /auth/google`**: Redirects to Google OAuth consent screen
+- **`GET /auth/google/callback`**: Exchanges code for tokens, sets signed cookie, redirects to `/`
+- **`GET /auth/logout`**: Clears auth cookie, redirects to `/auth/google`
+
+### Routes (auth required)
+- **`GET /`**: Main page with full HTML, HTMX, and inline edit mode
+- **`GET /webcams`**: Partial template for HTMX content updates (view mode); with `?edit=true` returns edit grid
 - **`GET /htmx.min.js`**: HTMX library served from node_modules
+- **`GET /Sortable.min.js`**: SortableJS library served from node_modules
 - **`GET /api/panoramicam`**: Image proxy for CORS-restricted panoramicam.eu sources
 
-### Backoffice Routes
-- **`GET /backoffice`**: Full HTML page with Tailwind CSS
-- **`GET /backoffice/webcams`**: Webcam table list (HTMX partial)
-- **`GET /backoffice/webcams/new`**: Create form (HTMX partial)
-- **`POST /backoffice/webcams`**: Create webcam, returns updated list
-- **`GET /backoffice/webcams/:id/edit`**: Edit form (HTMX partial)
-- **`PUT /backoffice/webcams/:id`**: Update webcam, returns updated row
-- **`DELETE /backoffice/webcams/:id`**: Delete webcam, removes row via `hx-swap="delete"`
-
-### Backoffice HTMX Flows
-- **Create**: Button loads form into `#form-container` → POST → swap entire list + clear form
-- **Edit**: Row edit button loads pre-populated form → PUT → swap just that `<tr>` + clear form
-- **Delete**: Row delete button with `hx-confirm` → DELETE → remove `<tr>`
-- No authentication (uses `DEFAULT_USER` env var, same as public viewer)
+### Inline Edit Routes
+- **`GET /webcams/new`**: Create form modal partial
+- **`POST /webcams`**: Create webcam, returns full edit grid
+- **`GET /webcams/:id/edit`**: Edit form modal partial with webcam data
+- **`PUT /webcams/:id`**: Update webcam, returns single edit card
+- **`DELETE /webcams/:id`**: Delete webcam, returns empty string
+- **`PUT /webcams/reorder`**: Accept `{order: [id, ...]}`, update positions
 
 ### Dependencies
 - **htmx.org**: Installed via npm for easy upgrades
+- **sortablejs**: Drag-and-drop reordering in edit mode, served from node_modules
 - **better-sqlite3**: SQLite3 binding for Node.js
-- **Tailwind CSS**: Via CDN for backoffice styling
-- **Express static middleware**: Serves HTMX directly from node_modules
+- **cookie-parser**: Signed cookie middleware for auth
+- **google-auth-library**: Google OAuth 2.0 token exchange and ID token verification
+- **Express static middleware**: Serves HTMX and SortableJS from node_modules
 
 ## Development Guidelines
 

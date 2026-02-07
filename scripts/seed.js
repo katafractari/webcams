@@ -57,10 +57,10 @@ async function main() {
   // Clear existing webcams for this user and re-seed
   db.prepare('DELETE FROM webcams WHERE user_id = ?').run(user.id);
 
-  const insertWebcam = db.prepare('INSERT INTO webcams (user_id, name, url) VALUES (?, ?, ?)');
+  const insertWebcam = db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)');
   const insertMany = db.transaction((webcams) => {
-    for (const webcam of webcams) {
-      insertWebcam.run(user.id, webcam.name, webcam.url);
+    for (let i = 0; i < webcams.length; i++) {
+      insertWebcam.run(user.id, webcams[i].name, webcams[i].url, i);
     }
   });
 

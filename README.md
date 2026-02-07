@@ -1,6 +1,6 @@
 # Webcams Grid
 
-Express.js + Handlebars webcam viewer displaying real-time views of Slovenian mountain areas. Uses SQLite for local webcam data storage with multi-tenancy support. Includes an HTMX-powered backoffice for managing webcams.
+Express.js + Handlebars webcam viewer displaying real-time views of Slovenian mountain areas. Uses SQLite for local webcam data storage with multi-tenancy support.
 
 ## Setup
 
@@ -9,10 +9,6 @@ npm install
 npm run seed     # Migrate webcams from Google Sheets to SQLite (requires API keys in .env)
 npm start        # Start the server
 ```
-
-## Backoffice
-
-Visit `/backoffice` to manage webcams through a web UI. Supports creating, editing, and deleting webcams. Styled with Tailwind CSS.
 
 ## Adding a Proxied Image
 

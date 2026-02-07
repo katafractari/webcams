@@ -86,18 +86,18 @@ describe('DatabaseService', () => {
       assert.strictEqual(result[0].name, 'User1 Cam');
     });
 
-    it('should return webcams in insertion order', () => {
+    it('should return webcams in position order', () => {
       db.prepare('INSERT INTO users (username) VALUES (?)').run('rok');
       const user = db.prepare('SELECT id FROM users WHERE username = ?').get('rok');
 
-      db.prepare('INSERT INTO webcams (user_id, name, url) VALUES (?, ?, ?)').run(user.id, 'Alpha', 'https://example.com/a.jpg');
-      db.prepare('INSERT INTO webcams (user_id, name, url) VALUES (?, ?, ?)').run(user.id, 'Beta', 'https://example.com/b.jpg');
-      db.prepare('INSERT INTO webcams (user_id, name, url) VALUES (?, ?, ?)').run(user.id, 'Gamma', 'https://example.com/g.jpg');
+      db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)').run(user.id, 'Alpha', 'https://example.com/a.jpg', 2);
+      db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)').run(user.id, 'Beta', 'https://example.com/b.jpg', 0);
+      db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)').run(user.id, 'Gamma', 'https://example.com/g.jpg', 1);
 
       const result = service.fetchWebcams('rok');
-      assert.strictEqual(result[0].name, 'Alpha');
-      assert.strictEqual(result[1].name, 'Beta');
-      assert.strictEqual(result[2].name, 'Gamma');
+      assert.strictEqual(result[0].name, 'Beta');
+      assert.strictEqual(result[1].name, 'Gamma');
+      assert.strictEqual(result[2].name, 'Alpha');
     });
   });
 
@@ -181,6 +181,17 @@ describe('DatabaseService', () => {
       const user = db.prepare('SELECT * FROM users WHERE username = ?').get('brandnew');
       assert.ok(user);
     });
+
+    it('should set position to next available position', () => {
+      service.createWebcam('rok', 'Cam 1', 'https://example.com/1.jpg');
+      service.createWebcam('rok', 'Cam 2', 'https://example.com/2.jpg');
+      service.createWebcam('rok', 'Cam 3', 'https://example.com/3.jpg');
+
+      const webcams = db.prepare('SELECT name, position FROM webcams ORDER BY position').all();
+      assert.strictEqual(webcams[0].position, 0);
+      assert.strictEqual(webcams[1].position, 1);
+      assert.strictEqual(webcams[2].position, 2);
+    });
   });
 
   describe('updateWebcam', () => {
@@ -239,6 +250,55 @@ describe('DatabaseService', () => {
 
       const result = service.deleteWebcam(Number(lastInsertRowid), 'user2');
       assert.strictEqual(result, false);
+    });
+  });
+
+  describe('updatePositions', () => {
+    it('should reorder webcams by position', () => {
+      db.prepare('INSERT INTO users (username) VALUES (?)').run('rok');
+      const user = db.prepare('SELECT id FROM users WHERE username = ?').get('rok');
+      db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)').run(user.id, 'Cam A', 'https://example.com/a.jpg', 0);
+      db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)').run(user.id, 'Cam B', 'https://example.com/b.jpg', 1);
+      db.prepare('INSERT INTO webcams (user_id, name, url, position) VALUES (?, ?, ?, ?)').run(user.id, 'Cam C', 'https://example.com/c.jpg', 2);
+
+      const webcams = service.fetchWebcamsWithIds('rok');
+      // Reverse the order
+      const reversedIds = webcams.map(w => w.id).reverse();
+      const result = service.updatePositions('rok', reversedIds);
+      assert.strictEqual(result, true);
+
+      const reordered = service.fetchWebcams('rok');
+      assert.strictEqual(reordered[0].name, 'Cam C');
+      assert.strictEqual(reordered[1].name, 'Cam B');
+      assert.strictEqual(reordered[2].name, 'Cam A');
+    });
+
+    it('should return false for non-existent user', () => {
+      const result = service.updatePositions('nobody', [1, 2, 3]);
+      assert.strictEqual(result, false);
+    });
+  });
+
+  describe('ensureUserByEmail', () => {
+    it('should create a new user with email', () => {
+      const username = service.ensureUserByEmail('newuser@example.com', 'newuser');
+      assert.strictEqual(username, 'newuser');
+      const user = db.prepare('SELECT * FROM users WHERE username = ?').get('newuser');
+      assert.strictEqual(user.email, 'newuser@example.com');
+    });
+
+    it('should return existing user by email', () => {
+      db.prepare('INSERT INTO users (username, email) VALUES (?, ?)').run('existing', 'existing@example.com');
+      const username = service.ensureUserByEmail('existing@example.com', 'different');
+      assert.strictEqual(username, 'existing');
+    });
+
+    it('should link email to existing username with no email', () => {
+      db.prepare('INSERT INTO users (username) VALUES (?)').run('rok');
+      const username = service.ensureUserByEmail('rok@example.com', 'rok');
+      assert.strictEqual(username, 'rok');
+      const user = db.prepare('SELECT * FROM users WHERE username = ?').get('rok');
+      assert.strictEqual(user.email, 'rok@example.com');
     });
   });
 

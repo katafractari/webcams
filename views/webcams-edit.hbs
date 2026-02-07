@@ -1,0 +1,11 @@
+{{#each webcams}}
+<div class="image" data-id="{{id}}" id="webcam-card-{{id}}">
+    <span class="image-name">{{name}}</span>
+    <img src="{{url}}" alt="{{name}}" data-name="{{name}}" onerror="this.onerror=null; this.classList.add('error'); this.src='/placeholder.svg';">
+    <div class="edit-controls">
+        <span class="drag-handle">&#9776;</span>
+        <button class="edit-btn" hx-get="/webcams/{{id}}/edit" hx-target="#edit-form-container" hx-swap="innerHTML">&#9998;</button>
+        <button class="delete-btn" hx-delete="/webcams/{{id}}" hx-target="#webcam-card-{{id}}" hx-swap="delete" hx-confirm="Delete &quot;{{name}}&quot;?">&#10005;</button>
+    </div>
+</div>
+{{/each}}

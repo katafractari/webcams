@@ -1,0 +1,24 @@
+<div class="form-overlay">
+    <div class="form-modal">
+        <h2>{{#if webcam}}Edit Webcam{{else}}New Webcam{{/if}}</h2>
+        <form {{#if webcam}}
+                hx-put="/webcams/{{webcam.id}}"
+                hx-target="#webcam-card-{{webcam.id}}"
+                hx-swap="outerHTML"
+              {{else}}
+                hx-post="/webcams"
+                hx-target=".container"
+                hx-swap="innerHTML"
+              {{/if}}
+              hx-on::after-request="if(event.detail.successful) document.getElementById('edit-form-container').innerHTML = ''">
+            <label for="webcam-name">Name</label>
+            <input type="text" id="webcam-name" name="name" value="{{webcam.name}}" required placeholder="e.g. Kredarica">
+            <label for="webcam-url">URL</label>
+            <input type="text" id="webcam-url" name="url" value="{{webcam.url}}" required placeholder="https://example.com/cam.jpg">
+            <div class="form-buttons">
+                <button type="submit">{{#if webcam}}Update{{else}}Create{{/if}}</button>
+                <button type="button" onclick="document.getElementById('edit-form-container').innerHTML = ''">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>

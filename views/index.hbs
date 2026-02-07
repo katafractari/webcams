@@ -121,6 +121,30 @@
             background: rgba(0, 0, 0, 0.8);
         }
 
+        .toolbar-user {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-family: sans-serif;
+            font-size: 13px;
+        }
+
+        .toolbar-link {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-family: sans-serif;
+            font-size: 13px;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .toolbar-link:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
         .toolbar .add-btn {
             display: none;
             background: rgba(34, 139, 34, 0.8);
@@ -268,8 +292,10 @@
 </head>
 <body>
 <div class="toolbar">
+    <span class="toolbar-user">{{username}}</span>
     <button class="add-btn" onclick="openAddForm()">+ Add</button>
     <button class="edit-toggle" onclick="toggleEditMode()">Edit</button>
+    <a href="/auth/logout" class="toolbar-link">Logout</a>
 </div>
 <div class="container" hx-get="/webcams" hx-trigger="load, every 60s" hx-swap="innerHTML">
 </div>
