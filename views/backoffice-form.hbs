@@ -1,0 +1,35 @@
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-5">{{#if webcam}}Edit Webcam{{else}}New Webcam{{/if}}</h2>
+    <form {{#if webcam}}
+            hx-put="/backoffice/webcams/{{webcam.id}}"
+            hx-target="#webcam-row-{{webcam.id}}"
+            hx-swap="outerHTML"
+          {{else}}
+            hx-post="/backoffice/webcams"
+            hx-target="#webcam-list"
+            hx-swap="innerHTML"
+          {{/if}}
+          hx-on::after-request="if(event.detail.successful) document.getElementById('form-container').innerHTML = ''">
+        <div class="grid gap-4 sm:grid-cols-2 mb-5">
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input type="text" id="name" name="name" value="{{webcam.name}}" required
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                       placeholder="e.g. Kredarica">
+            </div>
+            <div>
+                <label for="url" class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                <input type="text" id="url" name="url" value="{{webcam.url}}" required
+                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                       placeholder="https://example.com/cam.jpg">
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <input type="submit" value="{{#if webcam}}Update{{else}}Create{{/if}}"
+                   class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer">
+            <button type="button"
+                    onclick="document.getElementById('form-container').innerHTML = ''"
+                    class="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors">Cancel</button>
+        </div>
+    </form>
+</div>

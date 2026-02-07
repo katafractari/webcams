@@ -45,6 +45,54 @@ class DatabaseService {
     return stmt.all(username);
   }
 
+  fetchWebcamsWithIds(username) {
+    const stmt = this.db.prepare(`
+      SELECT w.id, w.name, w.url
+      FROM webcams w
+      JOIN users u ON w.user_id = u.id
+      WHERE u.username = ?
+      ORDER BY w.id
+    `);
+    return stmt.all(username);
+  }
+
+  fetchWebcamById(webcamId, username) {
+    const stmt = this.db.prepare(`
+      SELECT w.id, w.name, w.url
+      FROM webcams w
+      JOIN users u ON w.user_id = u.id
+      WHERE w.id = ? AND u.username = ?
+    `);
+    return stmt.get(webcamId, username) || null;
+  }
+
+  ensureUser(username) {
+    this.db.prepare('INSERT OR IGNORE INTO users (username) VALUES (?)').run(username);
+    return this.db.prepare('SELECT id FROM users WHERE username = ?').get(username).id;
+  }
+
+  createWebcam(username, name, url) {
+    const userId = this.ensureUser(username);
+    const result = this.db.prepare('INSERT INTO webcams (user_id, name, url) VALUES (?, ?, ?)').run(userId, name, url);
+    return result.lastInsertRowid;
+  }
+
+  updateWebcam(webcamId, username, name, url) {
+    const result = this.db.prepare(`
+      UPDATE webcams SET name = ?, url = ?
+      WHERE id = ? AND user_id = (SELECT id FROM users WHERE username = ?)
+    `).run(name, url, webcamId, username);
+    return result.changes > 0;
+  }
+
+  deleteWebcam(webcamId, username) {
+    const result = this.db.prepare(`
+      DELETE FROM webcams
+      WHERE id = ? AND user_id = (SELECT id FROM users WHERE username = ?)
+    `).run(webcamId, username);
+    return result.changes > 0;
+  }
+
   close() {
     this.db.close();
   }

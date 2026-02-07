@@ -169,4 +169,172 @@ describe('Express App', () => {
       assert.ok(response.headers['content-type']);
     });
   });
+
+  describe('Backoffice', () => {
+    describe('GET /backoffice', () => {
+      it('should render backoffice page', async () => {
+        const response = await request(app)
+          .get('/backoffice')
+          .expect(200);
+
+        assert.ok(response.text.includes('<title>Backoffice - Webcams</title>'));
+        assert.ok(response.text.includes('hx-get="/backoffice/webcams"'));
+        assert.ok(response.text.includes('Add New Webcam'));
+      });
+    });
+
+    describe('GET /backoffice/webcams', () => {
+      it('should render webcam list with ids', async () => {
+        const response = await request(app)
+          .get('/backoffice/webcams')
+          .expect(200);
+
+        assert.ok(response.text.includes('Test Webcam 1'));
+        assert.ok(response.text.includes('Test Webcam 2'));
+        assert.ok(response.text.includes('<table'));
+        assert.ok(response.text.includes('webcam-row-'));
+      });
+
+      it('should handle database errors', async () => {
+        const brokenService = {
+          fetchWebcamsWithIds: () => { throw new Error('Database error'); }
+        };
+        const brokenApp = createApp(brokenService);
+
+        const mockError = mock.method(console, 'error', () => {});
+        const response = await request(brokenApp)
+          .get('/backoffice/webcams')
+          .expect(500);
+        mockError.mock.restore();
+
+        assert.strictEqual(response.text, 'Error loading webcams');
+      });
+    });
+
+    describe('GET /backoffice/webcams/new', () => {
+      it('should render create form', async () => {
+        const response = await request(app)
+          .get('/backoffice/webcams/new')
+          .expect(200);
+
+        assert.ok(response.text.includes('New Webcam'));
+        assert.ok(response.text.includes('hx-post="/backoffice/webcams"'));
+        assert.ok(response.text.includes('name="name"'));
+        assert.ok(response.text.includes('name="url"'));
+      });
+    });
+
+    describe('POST /backoffice/webcams', () => {
+      it('should create a webcam and return updated list', async () => {
+        const response = await request(app)
+          .post('/backoffice/webcams')
+          .type('form')
+          .send({ name: 'New Cam', url: 'https://example.com/new.jpg' })
+          .expect(200);
+
+        assert.ok(response.text.includes('New Cam'));
+        assert.ok(response.text.includes('https://example.com/new.jpg'));
+        assert.ok(response.text.includes('<table'));
+      });
+
+      it('should reject missing name', async () => {
+        await request(app)
+          .post('/backoffice/webcams')
+          .type('form')
+          .send({ url: 'https://example.com/new.jpg' })
+          .expect(400);
+      });
+
+      it('should reject missing url', async () => {
+        await request(app)
+          .post('/backoffice/webcams')
+          .type('form')
+          .send({ name: 'New Cam' })
+          .expect(400);
+      });
+    });
+
+    describe('GET /backoffice/webcams/:id/edit', () => {
+      it('should render edit form with webcam data', async () => {
+        const webcams = dbService.fetchWebcamsWithIds('rok');
+        const webcamId = webcams[0].id;
+
+        const response = await request(app)
+          .get(`/backoffice/webcams/${webcamId}/edit`)
+          .expect(200);
+
+        assert.ok(response.text.includes('Edit Webcam'));
+        assert.ok(response.text.includes('Test Webcam 1'));
+        assert.ok(response.text.includes('https://example.com/cam1.jpg'));
+        assert.ok(response.text.includes(`hx-put="/backoffice/webcams/${webcamId}"`));
+      });
+
+      it('should return 404 for non-existent webcam', async () => {
+        const response = await request(app)
+          .get('/backoffice/webcams/99999/edit')
+          .expect(404);
+
+        assert.strictEqual(response.text, 'Webcam not found');
+      });
+    });
+
+    describe('PUT /backoffice/webcams/:id', () => {
+      it('should update a webcam and return updated row', async () => {
+        const webcams = dbService.fetchWebcamsWithIds('rok');
+        const webcamId = webcams[0].id;
+
+        const response = await request(app)
+          .put(`/backoffice/webcams/${webcamId}`)
+          .type('form')
+          .send({ name: 'Updated Cam', url: 'https://example.com/updated.jpg' })
+          .expect(200);
+
+        assert.ok(response.text.includes('Updated Cam'));
+        assert.ok(response.text.includes('https://example.com/updated.jpg'));
+        assert.ok(response.text.includes(`webcam-row-${webcamId}`));
+      });
+
+      it('should return 404 for non-existent webcam', async () => {
+        const response = await request(app)
+          .put('/backoffice/webcams/99999')
+          .type('form')
+          .send({ name: 'Name', url: 'https://example.com/url.jpg' })
+          .expect(404);
+
+        assert.strictEqual(response.text, 'Webcam not found');
+      });
+
+      it('should reject missing fields', async () => {
+        const webcams = dbService.fetchWebcamsWithIds('rok');
+        const webcamId = webcams[0].id;
+
+        await request(app)
+          .put(`/backoffice/webcams/${webcamId}`)
+          .type('form')
+          .send({ name: 'Only Name' })
+          .expect(400);
+      });
+    });
+
+    describe('DELETE /backoffice/webcams/:id', () => {
+      it('should delete a webcam and return empty response', async () => {
+        const webcams = dbService.fetchWebcamsWithIds('rok');
+        const webcamId = webcams[0].id;
+
+        const response = await request(app)
+          .delete(`/backoffice/webcams/${webcamId}`)
+          .expect(200);
+
+        assert.strictEqual(response.text, '');
+      });
+
+      it('should return 404 for non-existent webcam', async () => {
+        const response = await request(app)
+          .delete('/backoffice/webcams/99999')
+          .expect(404);
+
+        assert.strictEqual(response.text, 'Webcam not found');
+      });
+    });
+  });
 });

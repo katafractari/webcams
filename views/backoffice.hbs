@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Backoffice - Webcams</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/htmx.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+<div class="max-w-5xl mx-auto px-6 py-10">
+
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Backoffice</h1>
+            <a href="/" class="text-sm text-indigo-600 hover:text-indigo-800">&larr; Back to webcams</a>
+        </div>
+        <button class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                hx-get="/backoffice/webcams/new"
+                hx-target="#form-container"
+                hx-swap="innerHTML">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Add New Webcam
+        </button>
+    </div>
+
+    <div id="form-container"></div>
+
+    <div id="webcam-list" hx-get="/backoffice/webcams" hx-trigger="load" hx-swap="innerHTML">
+    </div>
+
+</div>
+</body>
+</html>

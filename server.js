@@ -21,6 +21,7 @@ const createApp = (dbService) => {
   app.set('view engine', 'hbs');
   app.set('views', './views');
 
+  app.use(express.urlencoded({ extended: true }));
   app.use(express.static('public'));
   app.use('/htmx.min.js', express.static('node_modules/htmx.org/dist/htmx.min.js'));
 
@@ -35,6 +36,84 @@ const createApp = (dbService) => {
     } catch (error) {
       console.error('Error fetching webcams:', error);
       res.status(500).send('Error loading webcams');
+    }
+  });
+
+  // Backoffice routes
+  app.get('/backoffice', (req, res) => {
+    res.render('backoffice');
+  });
+
+  app.get('/backoffice/webcams', (req, res) => {
+    try {
+      const webcams = dbService.fetchWebcamsWithIds(DEFAULT_USER);
+      res.render('backoffice-webcams', { webcams });
+    } catch (error) {
+      console.error('Error fetching webcams:', error);
+      res.status(500).send('Error loading webcams');
+    }
+  });
+
+  app.get('/backoffice/webcams/new', (req, res) => {
+    res.render('backoffice-form');
+  });
+
+  app.post('/backoffice/webcams', (req, res) => {
+    const { name, url } = req.body;
+    if (!name || !url) {
+      return res.status(400).send('Name and URL are required');
+    }
+    try {
+      dbService.createWebcam(DEFAULT_USER, name.trim(), url.trim());
+      const webcams = dbService.fetchWebcamsWithIds(DEFAULT_USER);
+      res.render('backoffice-webcams', { webcams });
+    } catch (error) {
+      console.error('Error creating webcam:', error);
+      res.status(500).send('Error creating webcam');
+    }
+  });
+
+  app.get('/backoffice/webcams/:id/edit', (req, res) => {
+    try {
+      const webcam = dbService.fetchWebcamById(Number(req.params.id), DEFAULT_USER);
+      if (!webcam) {
+        return res.status(404).send('Webcam not found');
+      }
+      res.render('backoffice-form', { webcam });
+    } catch (error) {
+      console.error('Error fetching webcam:', error);
+      res.status(500).send('Error loading webcam');
+    }
+  });
+
+  app.put('/backoffice/webcams/:id', (req, res) => {
+    const { name, url } = req.body;
+    if (!name || !url) {
+      return res.status(400).send('Name and URL are required');
+    }
+    try {
+      const updated = dbService.updateWebcam(Number(req.params.id), DEFAULT_USER, name.trim(), url.trim());
+      if (!updated) {
+        return res.status(404).send('Webcam not found');
+      }
+      const webcam = dbService.fetchWebcamById(Number(req.params.id), DEFAULT_USER);
+      res.render('backoffice-webcam-row', webcam);
+    } catch (error) {
+      console.error('Error updating webcam:', error);
+      res.status(500).send('Error updating webcam');
+    }
+  });
+
+  app.delete('/backoffice/webcams/:id', (req, res) => {
+    try {
+      const deleted = dbService.deleteWebcam(Number(req.params.id), DEFAULT_USER);
+      if (!deleted) {
+        return res.status(404).send('Webcam not found');
+      }
+      res.send('');
+    } catch (error) {
+      console.error('Error deleting webcam:', error);
+      res.status(500).send('Error deleting webcam');
     }
   });
 
