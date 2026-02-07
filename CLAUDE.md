@@ -12,31 +12,53 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 - **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX, includes `/api/panoramicam` proxy endpoint
 - **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh
 - **`views/webcams.hbs`**: Partial template for HTMX content updates
-- **`services/googleSheets.js`**: Google Sheets API service for dynamic webcam data fetching
+- **`services/database.js`**: SQLite database service using `better-sqlite3` for webcam data with multi-tenancy support
+- **`scripts/seed.js`**: Migration script to seed SQLite from Google Sheets
 - **`public/`**: Static assets (favicon, placeholder.svg, etc.)
 - **`tests/`**: Node.js native test runner suite with comprehensive coverage
+- **`data/`**: SQLite database storage directory (gitignored)
 
 ### Data Flow
-1. **Initial Load**: Full page render with webcam data from Google Sheets API
+1. **Initial Load**: Full page render with HTMX container
 2. **Auto-Refresh**: HTMX updates webcam container every 60 seconds via `/webcams` endpoint
-3. **No Browser Flicker**: Content updates in-place without page reload or browser spinner
-4. **Error Handling**: Return 500 error if Google Sheets fails (no fallback data)
-5. **Template**: Handlebars renders data from Google Sheets
+3. **Database**: Webcams are fetched from a local SQLite database (`data/webcams.db`)
+4. **No Browser Flicker**: Content updates in-place without page reload or browser spinner
+5. **Error Handling**: Return 500 error if database fails (no fallback data)
+6. **Template**: Handlebars renders data from SQLite
 
-### Google Sheets Integration
-- **API**: Google Sheets API (not visualization API)
-- **Authentication**: API key (stored in `GOOGLE_SHEETS_API_KEY`)
-- **URL Format**: `https://sheets.googleapis.com/v4/spreadsheets/{ID}/values/{RANGE}?key={API_KEY}`
-- **Expected Format**: Column A = webcam name, Column B = webcam URL, data starts row 2
-- **Error Handling**: Returns HTTP 500 with error message if Google Sheets unavailable
-- **Required Configuration**: Both `GOOGLE_SHEET_ID` and `GOOGLE_SHEETS_API_KEY` must be set
+### SQLite Database
+- **Library**: `better-sqlite3` (synchronous, fast SQLite3 binding)
+- **Database File**: `data/webcams.db` (created automatically on first run)
+- **Multi-tenancy**: Users table with webcams linked via `user_id` foreign key
+- **Default User**: `rok` (configurable via `DEFAULT_USER` env var)
+
+#### Schema
+```sql
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE webcams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
 
 ### Environment Variables
-Required in `.env` file:
+In `.env` file:
+- `PORT`: Server port (defaults to 3000)
+- `DEFAULT_USER`: Username for webcam fetching (defaults to `rok`)
+
+For migration only (seed script):
 - `GOOGLE_SHEET_ID`: Google Sheets document ID
 - `GOOGLE_SHEETS_API_KEY`: Google Cloud API key with Sheets API access
 - `SHEET_RANGE`: Data range (defaults to A2:B)
-- `PORT`: Server port (defaults to 3000)
 
 ### Template System
 - **Main Template** (`index.hbs`): Complete HTML document with HTMX integration
@@ -54,13 +76,20 @@ npm start        # Production mode
 npm run dev      # Development with nodemon (install nodemon first)
 ```
 
+### Seeding the Database
+```bash
+npm run seed     # Fetch webcams from Google Sheets and populate SQLite
+```
+
+Requires `GOOGLE_SHEET_ID` and `GOOGLE_SHEETS_API_KEY` to be set in `.env`.
+
 ### Adding New Panoramicam URLs
 To add a new panoramicam.eu webcam, encode the target URL:
 ```bash
 node -p "encodeURIComponent('https://liveimage.panoramicam.eu/thumbnail?application=NAME&streamname=NAME.stream&size=858x480&fitmode=letterbox&format=jpg')"
 ```
 
-Then use the relative URL in the Google Sheet (Column B):
+Then use the relative URL in the database:
 ```
 /api/panoramicam?targetUrl=ENCODED_URL&referer=https%3A%2F%2Fpanoramicam.eu%2F
 ```
@@ -75,36 +104,31 @@ npm run test:watch  # Run tests in watch mode
 
 **Test Coverage**:
 - Express routes: `/`, `/webcams`, `/htmx.min.js`, `/api/panoramicam`
-- Google Sheets service integration
+- SQLite database service (schema, queries, multi-tenancy)
 - HTMX functionality and partial templates
 - Panoramicam proxy endpoint with CORS handling
 - Error handling scenarios
 
-**Test Framework**: Uses Node.js native test runner (no external dependencies) with Supertest for HTTP testing and manual mocking for services.
+**Test Framework**: Uses Node.js native test runner (no external test framework dependencies) with Supertest for HTTP testing. Tests use in-memory SQLite databases seeded with test data.
 
 **Note**: Test console output includes expected error messages from error handling scenarios - all tests should pass.
 
 ### Local Development
 ```bash
 nvm use          # Switch to Node.js LTS version
+npm run seed     # Seed the database (first time only)
 npm run dev      # User will always start this themselves
 ```
 
 **Note**: The user prefers to start the development server themselves using `npm run dev`.
 
-### GCP Project Details
-- **Project ID**: `webcams-sheets-api`
-- **API Key**: Available in `.env.example`
-- **APIs Enabled**: Google Sheets API
-
 ## Adding New Webcams
 
-Add webcams directly to the Google Sheet:
-- Column A: Webcam name
-- Column B: Webcam URL
-- Changes appear via HTMX auto-refresh
+Webcams are stored in the SQLite database. Currently, webcams can be added by:
+1. Running the seed script to import from Google Sheets: `npm run seed`
+2. Directly inserting into the database
 
-No need to modify templates - Handlebars automatically renders new webcams.
+CRUD endpoints and a frontend will be added later.
 
 ## Panoramicam Proxy Endpoint
 
@@ -117,8 +141,6 @@ The `/api/panoramicam` Express endpoint handles:
 Query parameters:
 - `targetUrl`: URL-encoded panoramicam image URL
 - `referer`: Required referer header (usually `https://panoramicam.eu/`)
-
-**Note**: This endpoint replaces the previous Cloudflare Functions implementation.
 
 ## Layout Structure
 
@@ -151,6 +173,7 @@ When a webcam image fails to load, a placeholder is displayed:
 
 ### Dependencies
 - **htmx.org**: Installed via npm for easy upgrades
+- **better-sqlite3**: SQLite3 binding for Node.js
 - **Express static middleware**: Serves HTMX directly from node_modules
 
 ## Development Guidelines

@@ -1,2 +1,6 @@
-// Load environment variables from .env file for testing
-require('dotenv').config();
+// Test setup - load environment variables if .env file exists
+try {
+  require('dotenv').config();
+} catch {
+  // .env file is optional for tests
+}

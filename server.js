@@ -1,11 +1,17 @@
 require('dotenv').config();
 const express = require('express');
 const { engine } = require('express-handlebars');
-const googleSheets = require('./services/googleSheets');
+const { createDatabase, DatabaseService } = require('./services/database');
 
 const PORT = process.env.PORT || 3000;
+const DEFAULT_USER = process.env.DEFAULT_USER || 'rok';
 
-const createApp = (googleSheetsService = googleSheets) => {
+const createApp = (dbService) => {
+  if (!dbService) {
+    const db = createDatabase();
+    dbService = new DatabaseService(db);
+  }
+
   const app = express();
 
   app.engine('hbs', engine({
@@ -22,9 +28,9 @@ const createApp = (googleSheetsService = googleSheets) => {
     res.render('index');
   });
 
-  app.get('/webcams', async (req, res) => {
+  app.get('/webcams', (req, res) => {
     try {
-      const webcams = await googleSheetsService.fetchWebcams();
+      const webcams = dbService.fetchWebcams(DEFAULT_USER);
       res.render('webcams', { webcams });
     } catch (error) {
       console.error('Error fetching webcams:', error);
