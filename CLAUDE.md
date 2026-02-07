@@ -9,10 +9,14 @@ This is a Dockerized Express.js + Handlebars webcam viewer displaying real-time 
 ## Architecture
 
 ### Core Components
-- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX, includes `/api/panoramicam` proxy endpoint
+- **`server.js`**: Express server with Handlebars templating (no layouts), loads `.env` file, serves HTMX, includes `/api/panoramicam` proxy endpoint and backoffice CRUD routes
 - **`views/index.hbs`**: Main Handlebars template with HTMX auto-refresh
 - **`views/webcams.hbs`**: Partial template for HTMX content updates
-- **`services/database.js`**: SQLite database service using `better-sqlite3` for webcam data with multi-tenancy support
+- **`views/backoffice.hbs`**: Full HTML page for backoffice (Tailwind CSS via CDN)
+- **`views/backoffice-webcams.hbs`**: Partial template for webcam table list
+- **`views/backoffice-webcam-row.hbs`**: Partial template for single table row (used after PUT update)
+- **`views/backoffice-form.hbs`**: Dual-purpose create/edit form partial
+- **`services/database.js`**: SQLite database service using `better-sqlite3` for webcam data with multi-tenancy support and CRUD operations
 - **`scripts/seed.js`**: Migration script to seed SQLite from Google Sheets
 - **`public/`**: Static assets (favicon, placeholder.svg, etc.)
 - **`tests/`**: Node.js native test runner suite with comprehensive coverage
@@ -61,12 +65,13 @@ For migration only (seed script):
 - `SHEET_RANGE`: Data range (defaults to A2:B)
 
 ### Template System
-- **Main Template** (`index.hbs`): Complete HTML document with HTMX integration
+- **Main Template** (`index.hbs`): Complete HTML document with HTMX integration, inline CSS
 - **Partial Template** (`webcams.hbs`): Webcam grid for HTMX updates
+- **Backoffice Templates**: `backoffice.hbs` (full page), `backoffice-webcams.hbs` (table list), `backoffice-webcam-row.hbs` (single row), `backoffice-form.hbs` (create/edit form)
 - **HTMX Attributes**: `hx-get="/webcams"`, `hx-trigger="every 60s"`, `hx-swap="innerHTML"`
 - **No Layouts**: Single template approach
 - Uses `{{#each webcams}}` to iterate through webcam data
-- Preserves original CSS styling and responsive design
+- **Styling**: Public viewer uses inline CSS; backoffice uses Tailwind CSS via CDN
 
 ## Development Commands
 
@@ -107,7 +112,8 @@ npm run test:watch  # Run tests in watch mode
 
 **Test Coverage**:
 - Express routes: `/`, `/webcams`, `/htmx.min.js`, `/api/panoramicam`
-- SQLite database service (schema, queries, multi-tenancy)
+- Backoffice routes: GET/POST/PUT/DELETE for `/backoffice/webcams`
+- SQLite database service (schema, queries, multi-tenancy, CRUD operations)
 - HTMX functionality and partial templates
 - Panoramicam proxy endpoint with CORS handling
 - Error handling scenarios
@@ -127,11 +133,10 @@ npm run dev      # User will always start this themselves
 
 ## Adding New Webcams
 
-Webcams are stored in the SQLite database. Currently, webcams can be added by:
-1. Running the seed script to import from Google Sheets: `npm run seed`
-2. Directly inserting into the database
-
-CRUD endpoints and a frontend will be added later.
+Webcams are stored in the SQLite database. They can be managed by:
+1. **Backoffice UI**: Visit `/backoffice` to create, edit, and delete webcams
+2. Running the seed script to import from Google Sheets: `npm run seed`
+3. Directly inserting into the database
 
 ## Panoramicam Proxy Endpoint
 
@@ -174,9 +179,25 @@ When a webcam image fails to load, a placeholder is displayed:
 - **`GET /htmx.min.js`**: HTMX library served from node_modules
 - **`GET /api/panoramicam`**: Image proxy for CORS-restricted panoramicam.eu sources
 
+### Backoffice Routes
+- **`GET /backoffice`**: Full HTML page with Tailwind CSS
+- **`GET /backoffice/webcams`**: Webcam table list (HTMX partial)
+- **`GET /backoffice/webcams/new`**: Create form (HTMX partial)
+- **`POST /backoffice/webcams`**: Create webcam, returns updated list
+- **`GET /backoffice/webcams/:id/edit`**: Edit form (HTMX partial)
+- **`PUT /backoffice/webcams/:id`**: Update webcam, returns updated row
+- **`DELETE /backoffice/webcams/:id`**: Delete webcam, removes row via `hx-swap="delete"`
+
+### Backoffice HTMX Flows
+- **Create**: Button loads form into `#form-container` → POST → swap entire list + clear form
+- **Edit**: Row edit button loads pre-populated form → PUT → swap just that `<tr>` + clear form
+- **Delete**: Row delete button with `hx-confirm` → DELETE → remove `<tr>`
+- No authentication (uses `DEFAULT_USER` env var, same as public viewer)
+
 ### Dependencies
 - **htmx.org**: Installed via npm for easy upgrades
 - **better-sqlite3**: SQLite3 binding for Node.js
+- **Tailwind CSS**: Via CDN for backoffice styling
 - **Express static middleware**: Serves HTMX directly from node_modules
 
 ## Development Guidelines
