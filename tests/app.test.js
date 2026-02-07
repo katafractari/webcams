@@ -1,4 +1,4 @@
-const { describe, it, beforeEach, afterEach } = require('node:test');
+const { describe, it, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert');
 const request = require('supertest');
 const createApp = require('../server');
@@ -114,9 +114,11 @@ describe('Express App', () => {
       };
       const brokenApp = createApp(brokenService);
 
+      const mockError = mock.method(console, 'error', () => {});
       const response = await request(brokenApp)
         .get('/webcams')
         .expect(500);
+      mockError.mock.restore();
 
       assert.strictEqual(response.text, 'Error loading webcams');
 

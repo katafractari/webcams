@@ -97,6 +97,9 @@ Then use the relative URL in the database:
 The relative URL will work in both local development and production environments.
 
 ### Testing
+
+- Omit running tests with `2>&1` in order to see error logs
+
 ```bash
 npm test         # Run all tests (Node.js native test runner + Supertest)
 npm run test:watch  # Run tests in watch mode
