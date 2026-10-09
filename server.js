@@ -39,10 +39,23 @@ const createApp = (googleSheetsService = googleSheets) => {
       return res.status(400).send('Missing "targetUrl" or "referer" parameter');
     }
 
+    let target;
     try {
-      const imageResponse = await fetch(targetUrl, {
+      target = new URL(targetUrl);
+    } catch {
+      return res.status(400).send('Invalid image URL');
+    }
+    if (target.protocol !== 'https:' || target.hostname !== 'liveimage.panoramicam.eu' ||
+        target.port || target.username || target.password) {
+      return res.status(403).send('Image provider is not allowed');
+    }
+
+    try {
+      const imageResponse = await fetch(target.href, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(10000),
         headers: {
-          'Referer': referer,
+          'Referer': 'https://panoramicam.eu/',
           'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
         },
       });
@@ -60,7 +73,7 @@ const createApp = (googleSheetsService = googleSheets) => {
       res.send(Buffer.from(buffer));
 
     } catch (err) {
-      res.status(500).send(`Error fetching image: ${err.message}`);
+      res.status(502).send('Failed to fetch the target image');
     }
   });
 

@@ -1,0 +1,41 @@
+name: Validate application
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Use the public registry cache on this disposable runner
+        run: |
+          sudo python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('/etc/docker/daemon.json')
+          settings = json.loads(path.read_text()) if path.exists() else {}
+          settings['registry-mirrors'] = ['https://mirror.gcr.io']
+          path.write_text(json.dumps(settings))
+          PY
+          sudo systemctl restart docker
+      - name: Verify the production image starts without a database
+        run: |
+          docker build -t webcams-ci .
+          docker run --detach --name webcams-ci --publish 127.0.0.1:3000:3000 webcams-ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          docker logs webcams-ci
+          exit 1

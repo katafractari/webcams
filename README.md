@@ -10,25 +10,21 @@ node -p "encodeURIComponent('https://liveimage.panoramicam.eu/thumbnail?applicat
 
 ## Deployment
 
-### GitHub Secrets Setup
+Production is deployed from `master` to `https://webcams.parabola.si` on Forge.
+The private `katafractari/forge` repository owns routing, encrypted runtime
+credentials, and shared Compose settings. This repository's `compose.forge.yaml`
+is a thin adapter to `/etc/forge/apps/webcams/compose.yaml`.
 
-Configure these repository secrets (Settings → Secrets and variables → Actions):
+Doco-CD builds on Forge after signed GitHub push webhooks, with periodic polling
+as a fallback. BuildKit retains dependency layers and npm downloads. The image
+runs as a non-root user, publishes no application port, and requires no database
+or persistent volume. Cloudflare Tunnel forwards public requests through
+Traefik's internal public-app entrypoint.
 
-- **`KAMAL_REGISTRY_PASSWORD`**: Docker Hub access token
-- **`SSH_PRIVATE_KEY`**: SSH private key for Pi access  
-- **`GOOGLE_SHEET_ID`**: Google Sheets document ID
-- **`GOOGLE_SHEETS_API_KEY`**: Google Cloud API key
+Runtime credentials are supplied from `/etc/forge/apps/webcams/runtime.env`:
+`GOOGLE_SHEET_ID`, `GOOGLE_SHEETS_API_KEY`, and `SHEET_RANGE`. They never enter
+Git or the image in plaintext. Dockerfile builds do not use Nixpacks settings.
 
-### Deploy
-
-- **Automatic**: Push to `master` branch
-- **Manual**: GitHub Actions → "Run workflow"
-
-### Local Deploy
-
-```bash
-export KAMAL_REGISTRY_PASSWORD="your_token"
-export GOOGLE_SHEET_ID="your_sheet_id" 
-export GOOGLE_SHEETS_API_KEY="your_api_key"
-kamal deploy
-```
+The image proxy accepts only HTTPS images from `liveimage.panoramicam.eu`,
+uses a fixed Panoramicam referer, and rejects redirects. It cannot be used to
+request arbitrary Forge, localhost, or Tailscale endpoints.

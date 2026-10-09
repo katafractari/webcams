@@ -1,5 +1,6 @@
-# Use official Node.js LTS image for ARM64 (Raspberry Pi 4)
-FROM node:24.11.1-alpine
+# syntax=docker/dockerfile:1
+# Build on Forge using the native architecture and a persistent npm cache.
+FROM node:24-alpine
 
 # Set working directory
 WORKDIR /app
@@ -13,7 +14,7 @@ RUN deluser --remove-home node \
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 
 # Copy application code
 COPY . .
@@ -23,6 +24,8 @@ EXPOSE 3000
 
 # Set non-root user
 USER node
+
+ENV NODE_ENV=production
 
 # Start the application
 CMD ["npm", "start"]
