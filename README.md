@@ -13,7 +13,8 @@ node -p "encodeURIComponent('https://liveimage.panoramicam.eu/thumbnail?applicat
 Production is deployed from `master` to `https://webcams.parabola.si` on Forge.
 The private `katafractari/forge` repository owns routing, encrypted runtime
 credentials, and shared Compose settings. This repository's `compose.forge.yaml`
-is a thin adapter to `/etc/forge/apps/webcams/compose.yaml`.
+is a generic include using `FORGE_COMPOSE_FILE`, supplied in Forge's Doco-CD
+poll environment. It contains no host path or Webcams-specific deployment setting.
 
 Doco-CD builds on Forge after signed GitHub push webhooks, with periodic polling
 as a fallback. BuildKit retains dependency layers and npm downloads. The image

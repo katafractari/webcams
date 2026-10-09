@@ -1,4 +1,4 @@
-# Deployment settings and secrets are managed in katafractari/forge.
+# Deployment settings and secrets are supplied by Forge.
 include:
-  - path: /etc/forge/apps/webcams/compose.yaml
+  - path: ${FORGE_COMPOSE_FILE:?Forge must provide FORGE_COMPOSE_FILE}
     project_directory: .
