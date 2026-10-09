@@ -28,3 +28,12 @@ Git or the image in plaintext. Dockerfile builds do not use Nixpacks settings.
 The image proxy accepts only HTTPS images from `liveimage.panoramicam.eu`,
 uses a fixed Panoramicam referer, and rejects redirects. It cannot be used to
 request arbitrary Forge, localhost, or Tailscale endpoints.
+
+### Deployment verification
+
+The readiness check uses `/`, which renders without a Google Sheets request.
+Verify the configured data source separately with `/webcams`. Individual camera
+feeds can be offline; the browser displays the placeholder image for failures.
+
+Source changes belong in this repository's `master`. Hostnames, exposure,
+runtime settings and encrypted credentials belong in `apps/webcams/` in Forge.
