@@ -110,7 +110,8 @@ No need to modify templates - Handlebars automatically renders new webcams.
 
 The `/api/panoramicam` Express endpoint handles:
 - CORS headers for cross-origin requests
-- Proper referer header forwarding for panoramicam.eu
+- Fixed panoramicam.eu referer; HTTPS-only liveimage.panoramicam.eu targets
+- Redirects, credentials in URLs, custom ports and other providers are rejected
 - Error handling for failed image fetches
 - User-Agent preservation
 

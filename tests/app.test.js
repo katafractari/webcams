@@ -178,23 +178,52 @@ describe('Express App', () => {
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
       ]);
 
-      // Use a test server to mock the image response
-      const testImageUrl = 'https://httpbin.org/image/png';
+      const testImageUrl = 'https://liveimage.panoramicam.eu/thumbnail?application=synthetic';
       const referer = 'https://panoramicam.eu/';
 
-      const response = await request(app)
-        .get('/api/panoramicam')
-        .query({
-          targetUrl: testImageUrl,
-          referer: referer
-        })
-        .expect(200);
+      const originalFetch = global.fetch;
+      let requested;
+      global.fetch = async (url, options) => {
+        requested = {url, options};
+        return new Response(mockImageBuffer, {headers: {'Content-Type': 'image/png'}});
+      };
+      let response;
+      try {
+        response = await request(app).get('/api/panoramicam')
+          .query({targetUrl: testImageUrl, referer}).expect(200);
+      } finally {
+        global.fetch = originalFetch;
+      }
+      assert.strictEqual(requested.options.redirect, 'error');
+      assert.strictEqual(requested.options.headers.Referer, referer);
 
       // Check CORS header is set
       assert.strictEqual(response.headers['access-control-allow-origin'], '*');
 
       // Response should have content-type header
       assert.ok(response.headers['content-type']);
+    });
+    it('rejects private destinations, non-HTTPS URLs, and provider lookalikes before fetching', async () => {
+      const originalFetch = global.fetch;
+      let calls = 0;
+      global.fetch = async () => { calls++; throw new Error('Must not fetch'); };
+      try {
+        for (const targetUrl of ['http://liveimage.panoramicam.eu/image', 'https://127.0.0.1/',
+          'https://100.87.170.96/', 'https://liveimage.panoramicam.eu.evil.test/',
+          'https://user:password@liveimage.panoramicam.eu/', 'https://liveimage.panoramicam.eu:8080/']) {
+          await request(app).get('/api/panoramicam').query({targetUrl, referer: 'https://panoramicam.eu/'}).expect(403);
+        }
+        assert.strictEqual(calls, 0);
+      } finally { global.fetch = originalFetch; }
+    });
+    it('returns a generic error when the provider redirects or fails', async () => {
+      const originalFetch = global.fetch;
+      global.fetch = async () => { throw new Error('private upstream details'); };
+      try {
+        const response = await request(app).get('/api/panoramicam')
+          .query({targetUrl: 'https://liveimage.panoramicam.eu/image', referer: 'https://panoramicam.eu/'}).expect(502);
+        assert.strictEqual(response.text, 'Failed to fetch the target image');
+      } finally { global.fetch = originalFetch; }
     });
   });
 });
