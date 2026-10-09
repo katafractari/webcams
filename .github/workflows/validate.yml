@@ -18,6 +18,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Use the public registry cache on this disposable runner
+        run: |
+          sudo python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('/etc/docker/daemon.json')
+          settings = json.loads(path.read_text()) if path.exists() else {}
+          settings['registry-mirrors'] = ['https://mirror.gcr.io']
+          path.write_text(json.dumps(settings))
+          PY
+          sudo systemctl restart docker
       - name: Verify the production image starts without a database
         run: |
           docker build -t webcams-ci .
