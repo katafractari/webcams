@@ -29,13 +29,30 @@ jobs:
           path.write_text(json.dumps(settings))
           PY
           sudo systemctl restart docker
-      - name: Verify the production image starts without a database
+      - name: Prepare synthetic credentials and the production Compose network
         run: |
-          docker build -t webcams-ci .
-          docker run --detach --name webcams-ci --publish 127.0.0.1:3000:3000 webcams-ci
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          docker logs webcams-ci
-          exit 1
+          sudo install -d -m 0700 /etc/forge/apps/webcams
+          cat > /tmp/runtime.env <<'EOF'
+          GOOGLE_SHEET_ID=""
+          GOOGLE_SHEETS_API_KEY=""
+          SHEET_RANGE="A2:B"
+          EOF
+          sudo install -m 0600 /tmp/runtime.env /etc/forge/apps/webcams/runtime.env
+          docker network create forge-proxy
+      - name: Validate production routing, storage and source context
+        run: |
+          sudo docker compose -f compose.forge.yaml config --format json > /tmp/compose.json
+          python3 - <<'PY'
+          import json, os
+          d = json.load(open('/tmp/compose.json'))
+          assert d['services']['app']['build']['context'] == os.getcwd()
+          assert not d['services']['app'].get('ports')
+          assert d['services']['app']['labels']['traefik.http.routers.webcams.entrypoints'] == 'tunnel'
+          assert not d['services']['app'].get('volumes')
+          assert 'traefik.http.routers.webcams.tls' not in d['services']['app']['labels']
+          PY
+      - name: Build and verify the real production Compose project
+        run: sudo docker compose -p webcams-ci -f compose.forge.yaml up --detach --build --wait --wait-timeout 60
+      - name: Clean up the disposable Compose project
+        if: always()
+        run: sudo docker compose -p webcams-ci -f compose.forge.yaml down --volumes
