@@ -170,3 +170,16 @@ When a webcam image fails to load, a placeholder is displayed:
 - **NEVER create additional markdown files** beyond README.md and CLAUDE.md
 - All documentation should go into existing README.md or CLAUDE.md files
 - Avoid creating files like DEPLOYMENT.md, CONTRIBUTING.md, etc.
+
+## Production deployment
+
+`compose.forge.yaml` is the full production Compose definition; `.doco-cd.yml`
+contains native Doco-CD deployment policy. Keep image builds, runtime settings,
+health checks and Traefik routing here. Do not replace the Compose file with an
+include or move these settings into Ansible templates.
+
+Forge owns shared infrastructure, repository watches and SOPS credential delivery
+at `/etc/forge/apps/webcams/runtime.env`. Its app catalog also declares the public
+hostname/exposure for DNS and tunnel ingress; keep those in sync with routing here.
+Never commit plaintext credentials. CI builds and starts the actual production
+Compose project on a disposable runner with synthetic credentials.
