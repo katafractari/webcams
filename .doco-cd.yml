@@ -1,0 +1,12 @@
+name: webcams-prod
+reference: master
+compose_files: [compose.forge.yaml]
+webhook_filter: ^refs/heads/master$
+timeout: 10m
+prune_images: false
+build:
+  no_cache: false
+  force_image_pull: false
+reconciliation:
+  enabled: true
+  events: [unhealthy, die, destroy, stop]
