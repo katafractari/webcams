@@ -37,5 +37,7 @@ The readiness check uses `/`, which renders without a Google Sheets request.
 Verify the configured data source separately with `/webcams`. Individual camera
 feeds can be offline; the browser displays the placeholder image for failures.
 
-Source changes belong in this repository's `master`. Hostnames, exposure,
-runtime settings and encrypted credentials belong in `apps/webcams/` in Forge.
+Source and deployment settings belong in this repository's `master`:
+`compose.forge.yaml` owns runtime settings and routing, and `.doco-cd.yml` owns
+deployment policy. Keep the hostname/exposure consistent with `apps/webcams/`
+in Forge, which owns public DNS/tunnel ingress and encrypted credentials.
